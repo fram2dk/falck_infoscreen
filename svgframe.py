@@ -18,6 +18,7 @@ import textwrap
 
 load_dotenv()
 mqttdata = json.loads(os.getenv('MQTTDATA'))
+version = '240223a'
 
 que = Queue(maxsize = 3)
 mqtttopic = mqttdata['topic'] #"struerbrand/activeIncidents"
@@ -448,7 +449,7 @@ def threadGui(name,que):
     window.geometry('%dx%d+%d+%d' % (w, h, x, y))
     print("screen:"+str(w)+"x"+str(h)+" x="+str(x)+",y="+str(y))
     #Set the Title of Tkinter window
-    window.title(str(os.getenv('STATIONNAME')))
+    window.title(str(os.getenv('STATIONNAME'))+' (v'+str(version)+')')
     def drawImage(pngdata=None):
         clearFrame()
         if pngdata is not None:
