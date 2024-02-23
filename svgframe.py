@@ -126,7 +126,7 @@ class Incidents:
     def updateur(self):
       udkaldTimeWarning = 280 #280
       udkaldTimeExceeded = 300 #300
-      udkaldTimeCalling = 20 #600
+      udkaldTimeCalling = 600 #600
       udkaldTimeActive =  60*30 #60*30
       udkaldTimeExpired = 3600*12 #3600*12
       stateChanged = False
