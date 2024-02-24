@@ -19,8 +19,8 @@ import textwrap
 load_dotenv()
 mqttdata = json.loads(os.getenv('MQTTDATA'))
 version = '240223a'
-# begin code123
-
+# begin code
+#987
 que = Queue(maxsize = 3)
 mqtttopic = mqttdata['topic'] #"struerbrand/activeIncidents"
 
