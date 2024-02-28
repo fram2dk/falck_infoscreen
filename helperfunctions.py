@@ -331,13 +331,14 @@ class Incidents:
           meldfullLabel = tk.Message(frame,aspect=500, text = str(fuldmelding),font=("Arial", 20))
           meldfullLabel.grid(column=0,columnspan=3, row=rownum)
 
-        frame.pack(fill='x',expand=True)
+        frame.pack(fill='x',expand=True)  
         
 def strfdelta(tdelta, fmt):
     d = {"days": tdelta.days}
     d["hours"], rem = divmod(tdelta.seconds, 3600)
     d["minutes"], d["seconds"] = divmod(rem, 60)
     return fmt.format(**d)
+    
 def round_rectangle(canvas,x1, y1, x2, y2, radius=25, **kwargs):
         
     points = [x1+radius, y1,

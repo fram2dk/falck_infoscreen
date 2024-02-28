@@ -11,7 +11,7 @@ from queue import Queue
 
 from helperfunctions import Incidents
 
-def threadGui(name,que: Queue, incidenttopic=''):
+def threadGui(name,que: Queue, incidenttopic='',swversion='.,.'):
     ## gui
     incidentsObj = Incidents()
     window = tk.Tk()
@@ -35,7 +35,7 @@ def threadGui(name,que: Queue, incidenttopic=''):
     window.geometry('%dx%d+%d+%d' % (w, h, x, y))
     print("screen:"+str(w)+"x"+str(h)+" x="+str(x)+",y="+str(y))
     #Set the Title of Tkinter window
-    window.title(str(os.getenv('STATIONNAME')))
+    window.title(str(os.getenv('STATIONNAME'))+' (v'+str(swversion)+')')
     def drawImage(pngdata=None):
         clearFrame()
         if pngdata is not None:
@@ -74,7 +74,7 @@ def threadGui(name,que: Queue, incidenttopic=''):
                 drawImage(pngdata=message)
               else:
                 print('recieved incident:'+str(message.decode('utf-8'))+' '+str(topic))
-                if topic == incidenttopic:
+                if topic == mqttdata['topic']:
                   incidents = None
                   try:
                     incidents = json.loads(message.decode('utf-8'))
@@ -113,6 +113,8 @@ def threadGui(name,que: Queue, incidenttopic=''):
         window.update()
         time.sleep(0.5)
       # window.mainloop()
+
+
       
 """
 t1 = Queue()      
