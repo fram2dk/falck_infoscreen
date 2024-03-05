@@ -3,6 +3,18 @@ from datetime import datetime,timedelta
 import tkinter as tk
 import json
 import textwrap
+import logging
+import inspect
+from dotenv import load_dotenv
+import os
+import traceback
+
+try:
+  load_dotenv()
+  scaling = float(os.getenv('SCALING'))
+except:
+  scaling = 1
+print('scalering'+str(scaling))
 
 class Incidents:
   def __init__(self):
@@ -10,6 +22,8 @@ class Incidents:
     self.displayclock = False
     self.clockstr = None
     self.listActiveIncidents = []
+    self.logger = logging.getLogger(__name__ + '.Incidents')
+    self.logger.setLevel(logging.DEBUG)
   def updateure(self):
     for incidentid,incidentObj in self.allincidents.items():
       statechanged = incidentObj.updateur()
@@ -18,7 +32,7 @@ class Incidents:
     if self.displayclock:
       if self.clockstr is not None:
         self.clockstr.set(datetime.now().strftime('%H:%M:%S'))
-        print(self.clockstr.get())
+        #self.logger.debug(inspect.currentframe().f_code.co_name+' - '+str(self.clockstr.get()))
     return False #statechanged
   def update_incidents(self,curWindow,newIncidents=None):
     if newIncidents is not None:
@@ -40,7 +54,7 @@ class Incidents:
     if self.displayclock:
        if self.clockstr is None:
          self.clockstr = tk.StringVar(curWindow)
-       clocklabel = tk.Label(curWindow, textvariable = self.clockstr,font=("Arial", 160))
+       clocklabel = tk.Label(curWindow, textvariable = self.clockstr,font=("Arial", int(160*scaling)))
        clocklabel.pack(fill='x',expand=True)
     for incidentid,incidentObj in self.allincidents.items():
        if stateview[1]+stateview[2]+stateview[3] >= 3:
@@ -54,7 +68,7 @@ class Incidents:
   class Incident:
     
     def __init__(self, incidentid):
-      incidentid = incidentid
+      self.incidentid = incidentid
       self.rawdict = ''
       self.state = State.OFF
       self.constrained = False
@@ -63,18 +77,22 @@ class Incidents:
       self.stressurCanvas = None
       self.stressurCanvasText = None
       self.stressurCanvasBg = None
+      self.logger = logging.getLogger(__name__ + '.Incidents.Incident('+str(self.incidentid)+')')
+      self.logger.setLevel(logging.DEBUG)
     def setConstrain(self,newvalue):
       self.constrained = bool(newvalue)
     def update(self,newdict):
       if newdict != self.rawdict:
         self.rawdict = newdict
-        print('ny melding'+str(self.rawdict))
+        self.logger.info(inspect.currentframe().f_code.co_name+' - ny melding'+str(self.rawdict))
+        return True
+      return False
     def updateur(self):
       udkaldTimeWarning = 280 #280
       udkaldTimeExceeded = 300 #300
       udkaldTimeCalling = 600 #600
       udkaldTimeActive =  60*30 #60*30
-      udkaldTimeExpired = 3600*12 #3600*12
+      udkaldTimeExpired = 3600*2 #3600*12
       stateChanged = False
  
       if isinstance(self.rawdict,dict):
@@ -82,24 +100,51 @@ class Incidents:
           stresstid = datetime.now()-datetime.fromtimestamp(int(self.rawdict['starttime']))+timedelta(seconds=20)
           if stresstid.total_seconds() < udkaldTimeCalling: #60*10
             if self.state != State.CALLING:
-              print('incident changed to calling') 
+              self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to calling') 
               stateChanged = True
             self.state = State.CALLING
 
           else:
             if self.state == State.CALLING:
-              print('incident changed to active') 
+              self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to active') 
               self.state = State.ACTIVE
               stateChanged = True
-            if stresstid.total_seconds() > udkaldTimeActive and self.state == State.ACTIVE: #('endtime' in self.rawdict)
+            isinactive = False
+            if 'endtime' in self.rawdict:
+              if datetime.now() > datetime.fromtimestamp(int(self.rawdict['endtime'])):
+                isinactive = True
+            else:
+              if stresstid.total_seconds() > udkaldTimeActive:
+                isinactive = True
+                
+            if isinactive and self.state == State.ACTIVE:
               self.state = State.INACTIVE
               stateChanged = True
-              print('incident changed to inactive'+str(self.rawdict['endtime']))
+              self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to inactive'+str(self.rawdict['endtime']))
           if self.state == State.INACTIVE:
-            if 'endtime' in self.rawdict:
-              #stresstid = datetime.fromtimestamp(int(self.rawdict['endtime']))-datetime.fromtimestamp(int(self.rawdict['starttime']))
+              if 'endtime' in self.rawdict:
+                indstatstid = datetime.fromtimestamp(int(self.rawdict['endtime']))-datetime.fromtimestamp(int(self.rawdict['starttime']))
+                indsatsTimer,indsatsMinut = divmod(int(indstatstid.total_seconds()/60),60)
+                udkaldstid = ''
+                if indsatsTimer > 0:
+                  udkaldstid += str(int(indsatsTimer))
+                  if int(indsatsTimer) == 1:
+                    udkaldstid += ' t '
+                  else:
+                    udkaldstid += ' t '
+                udkaldstid += str(int(indsatsMinut)).zfill(2)
+                if int(indsatsMinut) == 1:
+                  udkaldstid += ' min.'
+                else:
+                  udkaldstid += ' min.'
+                  
+                udkaldstid += datetime.fromtimestamp(int(self.rawdict['starttime'])).strftime(' udkaldstidpunkt: %H:%M:%S ')
+
+                
+                  
+                self.stressurCanvas.itemconfig(self.stressurCanvasText, text=udkaldstid)
               if stresstid.total_seconds() >= udkaldTimeExpired:
-                print('incident changed to off')
+                self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to off')
                 self.state = State.OFF
                 stateChanged = True
                
@@ -111,17 +156,20 @@ class Incidents:
             streesTimStr =str(int(streesMin)).zfill(2)+':'+str(int(stressSek)).zfill(2)
             
           self.stressstr.set(str(int(streesMin)).zfill(2)+':'+str(int(stressSek)).zfill(2))
-          if (self.state == State.CALLING or self.state == State.ACTIVE) and self.stressurCanvas is not None and self.stressurCanvasText is not None:
-            if isinstance(self.stressurCanvas,tk.Canvas):
-              self.stressurCanvas.itemconfig(self.stressurCanvasText, text=streesTimStr)
-              if self.stressurCanvasBg is not None:
-                if self.state == State.CALLING:
-                  if stresstid.total_seconds() < udkaldTimeWarning:
-                    self.stressurCanvas.itemconfig(self.stressurCanvasBg, fill='')
-                  else:
-                    self.stressurCanvas.itemconfig(self.stressurCanvasBg, fill='#f3ff4a') #gul
-                    if stresstid.total_seconds() > udkaldTimeExceeded:
-                      self.stressurCanvas.itemconfig(self.stressurCanvasBg, fill='#ff454e') #rød
+          try:
+            if (self.state == State.CALLING or self.state == State.ACTIVE) and not stateChanged and self.stressurCanvas is not None and self.stressurCanvasText is not None:
+              if isinstance(self.stressurCanvas,tk.Canvas):
+                self.stressurCanvas.itemconfig(self.stressurCanvasText, text=streesTimStr)
+                if self.stressurCanvasBg is not None:
+                  if self.state == State.CALLING:
+                    if stresstid.total_seconds() < udkaldTimeWarning:
+                      self.stressurCanvas.itemconfig(self.stressurCanvasBg, fill='')
+                    else:
+                      self.stressurCanvas.itemconfig(self.stressurCanvasBg, fill='#f3ff4a') #gul
+                      if stresstid.total_seconds() > udkaldTimeExceeded:
+                        self.stressurCanvas.itemconfig(self.stressurCanvasBg, fill='#ff454e') #rød
+          except:
+            self.logger.error(inspect.currentframe().f_code.co_name+' - failed to change streesur: '+str(traceback.format_exc()))
           return stateChanged
       
     def drawIncident(self,window):
@@ -135,22 +183,22 @@ class Incidents:
         if self.state == State.INACTIVE:
           textcolor = '#aaa'
         if vconstrain:
-          textsize = 12
+          textsize = 12*scaling
         else:
-          textsize = 30
+          textsize = 30*scaling
         
         self.drawingFrame = tk.LabelFrame(window,fg=textcolor,font=("Arial", int(textsize*1.2)),labelanchor='n')
         frame = self.drawingFrame
         rownum = 0
-        indsatstidLabelMes = tk.Message(frame,aspect=500, fg=textcolor,text = 'Indsats tid:',font=("Arial", textsize))
-        self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=200, height=50)
+        indsatstidLabelMes = tk.Message(frame,aspect=500, fg=textcolor,text = 'Indsats tid:',font=("Arial", int(textsize)))
+        self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=500, height=50)
         self.stressurCanvasBg = round_rectangle(self.stressurCanvas,0, 0, 410, 120, radius=20, fill='')
-        self.stressurCanvasText = self.stressurCanvas.create_text(10, 20, fill=textcolor,text='_',anchor="w", font=("Arial", textsize))
+        self.stressurCanvasText = self.stressurCanvas.create_text(10, 20, fill=textcolor,text='_',anchor="w", font=("Arial", int(textsize)))
         self.stressurCanvas.grid(column=1, row=rownum)
         indsatstidLabelMes.grid(column=0, row=rownum)
         rownum += 1
         
-        meldingLabelMes = tk.Message(frame,aspect=500,fg=textcolor, text = 'melding:',font=("Arial", textsize))
+        meldingLabelMes = tk.Message(frame,aspect=500,fg=textcolor, text = 'melding:',font=("Arial", int(textsize)))
         melding = ' '
         if meldingsplit is not None:
           if vconstrain:
@@ -158,9 +206,9 @@ class Incidents:
           else:
             frame.configure(text=str(meldingsplit[0]))
             melding = textwrap.fill('\n'.join(meldingsplit[1:]),replace_whitespace=False,width=25)
-        meldingMesMes = tk.Message(frame,aspect=500, fg=textcolor,text = str(melding),font=("Arial", textsize))
+        meldingMesMes = tk.Message(frame,aspect=500, fg=textcolor,text = str(melding),anchor="w",font=("Arial", int(textsize)))
         meldingLabelMes.grid(column=0, row=rownum)
-        meldingMesMes.grid(column=1, row=rownum)
+        meldingMesMes.grid(sticky="W",column=1, row=rownum)
         
         frame.pack(fill='x',expand=True)
         
@@ -168,15 +216,15 @@ class Incidents:
          
       if self.state == State.CALLING:
         
-        self.drawingFrame = tk.LabelFrame(window, text='_',font=("Arial", 70),labelanchor='n')
+        self.drawingFrame = tk.LabelFrame(window, text='_',font=("Arial", int(70*scaling)),labelanchor='n')
         self.drawingFrame.columnconfigure(0, minsize=20, weight=0)
         self.drawingFrame.columnconfigure(1, weight=1)
         self.drawingFrame.columnconfigure(2, weight=1)
         
-        def drawSeats(vechid,personelavail): #personelavail[{'name':'','skills':['BM']}]
+        def drawSeats(vechid,personelavail,height): #personelavail[{'name':'','skills':['BM']}]
             def drawCircle(cx,cy):
-              circleradius = 10
-              print("circle:"+str(cx))
+              circleradius = int(height/15)
+              #print("circle:"+str(cx))
               c.create_oval(int(cx-circleradius),int(cy-circleradius),int(cx+circleradius),int(cy+circleradius),fill='white')
 
             vechicleid = str(vechid)
@@ -185,7 +233,7 @@ class Incidents:
                 if vechicleid in incident['meldingdata']['crew']:
                   crewneed = len(incident['meldingdata']['crew'][vechicleid])
                   crewused = min(crewneed,len(personelavail))
-                  csize = 60
+                  csize = int(height/2.5)
                   c = tk.Canvas(frame, width=csize, height=csize)
                   
                   for x in range(1,int(crewneed)+1):
@@ -259,10 +307,10 @@ class Incidents:
         if meldSpecifik is not None:
           if len(meldSpecifik) > 1:
             #print('meldoing: '+meldSpecifik)
-            meldSpecifikLabel = tk.Message(frame,aspect=500, text = str(meldSpecifik),font=("Arial", 50))
+            meldSpecifikLabel = tk.Message(frame,aspect=500, text = str(meldSpecifik),font=("Arial", int(50*scaling)))
             meldSpecifikLabel.grid(column=0,columnspan=3, row=0)
             rownum += 1
-        print(incident['vehicles'])
+        self.logger.debug(inspect.currentframe().f_code.co_name+' - køretøjer:'+str(incident['vehicles']))
         if vconstrain:
           rowur = rownum+1
         else:
@@ -270,7 +318,7 @@ class Incidents:
           rownum += 1
         if 'lokation' in incident:
           if incident['lokation'] is not None:
-            lokation = tk.Label(frame, text = str(incident['lokation']),font=("Arial", 40))
+            lokation = tk.Label(frame, text = str(incident['lokation']),font=("Arial", int(40*scaling)))
             lokation.grid(column=0,columnspan=3, row=rownum)
             rownum += 1
 
@@ -284,13 +332,14 @@ class Incidents:
                 personelavail = int(crew['assigned']) 
                 extracrew = int(crew['assigned'])-int(crew['minimum'])
           except:
-            pass
+            self.logger.warn(inspect.currentframe().f_code.co_name+' - no crew in incident')
 
              
         for vechid,vechname in vehicles.items():
           if vechid != 'ISL':
-           personel = [None]*int(personelavail)      
-           c,personelused,filled = drawSeats(vechid,personel)
+           personel = [None]*int(personelavail)
+           ktsize = {'h':int(150*scaling),'w':int(550*scaling),'xoffs':5,'yoffs':0}      
+           c,personelused,filled = drawSeats(vechid,personel,ktsize['h'])
            personelavail -= personelused 
            if c is not None:
              c.grid(column=0, row=rownum,sticky=tk.W)
@@ -298,37 +347,40 @@ class Incidents:
            if False: #simple
              køretøjer[vechid] = tk.Label(frame, text = str(vechname), bg=backgroundc) #simple
            else:
-             køretøjer[vechid] = tk.Canvas(frame,background=window["bg"], width=550, height=150)
+              
+             køretøjer[vechid] = tk.Canvas(frame,background=window["bg"], width=ktsize['w'], height=ktsize['h'])
              if filled:
-               round_rectangle(køretøjer[vechid],5, 15, 545, 135, radius=10, fill='#6eff7c')
+               round_rectangle(køretøjer[vechid],ktsize['xoffs'], ktsize['yoffs'], ktsize['w']-ktsize['xoffs']-1, ktsize['h']-ktsize['yoffs']-1, radius=ktsize['h']*0.15, fill='#6eff7c')
              else:
                pass
-             køretøjer[vechid].create_text(10, 70, text=str(vechname),anchor="w", font=('Helvetica 80'))
+             køretøjer[vechid].create_text(ktsize['xoffs']+5, int(ktsize['h']/2), text=str(vechname),anchor="w", font=('Helvetica', int(80*scaling)))
 
            køretøjer[vechid].grid(column=1, row=rownum,sticky=tk.W)
-           print('drawing '+str(vechid)+' at row '+str(rownum))
+           self.logger.debug(inspect.currentframe().f_code.co_name+' - drawing '+str(vechid)+' at row '+str(rownum))
            #køretøjer[vechid].pack(fill='x',expand=True)
            rownum += 1
         if extracrew > 0:
-          ekstracrewLabel = tk.Label(frame, text = '+'+str(int(extracrew)),font=('Helvetica 100'))
+          ekstracrewLabel = tk.Label(frame, text = '+'+str(int(extracrew)),font=('Helvetica',int(100*scaling)))
           ekstracrewLabel.grid(column=0,columnspan=2, row=rownum,sticky=tk.W)
           rownum += 1
         if 'starttime' in incident:
           #self.updateur()
           if vconstrain:
-            self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=230, height=60)
-            self.stressurCanvasBg = round_rectangle(self.stressurCanvas,1, 1, 229, 59, radius=10, fill='')
-            self.stressurCanvasText = self.stressurCanvas.create_text(10, 30, text='_',anchor="w", font=("Arial", 48))
+            ursize = {'h':int(60*scaling),'w':int(230*scaling)} 
+            self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=ursize['w'], height=ursize['h'])
+            self.stressurCanvasBg = round_rectangle(self.stressurCanvas,1, 1, ursize['w']-1, ursize['w']-1, radius=int(ursize['h']*0.15), fill='')
+            self.stressurCanvasText = self.stressurCanvas.create_text(int(ursize['w']*0.05), int(ursize['h']/2), text='_',anchor="w", font=("Arial", int(48*scaling)))
             self.stressurCanvas.grid(column=2,rowspan=rownum, row=rowur)
           else:
-            self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=430, height=140)
-            self.stressurCanvasBg = round_rectangle(self.stressurCanvas,0, 0, 410, 120, radius=20, fill='')
-            self.stressurCanvasText = self.stressurCanvas.create_text(10, 60, text='_',anchor="w", font=("Arial", 120))
+            ursize = {'h':int(140*scaling),'w':int(430*scaling)} 
+            self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=ursize['w'], height=ursize['h'])
+            self.stressurCanvasBg = round_rectangle(self.stressurCanvas,1, 1, ursize['w']-1, ursize['h']-1, radius=int(ursize['h']*0.15), fill='') 
+            self.stressurCanvasText = self.stressurCanvas.create_text(int(ursize['w']*0.05), int(ursize['h']/2), text='_',anchor="w", font=("Arial", int(120*scaling)))  #120
             self.stressurCanvas.grid(column=0,columnspan=3, row=rowur)
           self.updateur()
         if not vconstrain:
           
-          meldfullLabel = tk.Message(frame,aspect=500, text = str(fuldmelding),font=("Arial", 20))
+          meldfullLabel = tk.Message(frame,aspect=500, text = str(fuldmelding),font=("Arial", int(20*scaling)))
           meldfullLabel.grid(column=0,columnspan=3, row=rownum)
 
         frame.pack(fill='x',expand=True)  
@@ -369,7 +421,7 @@ class State(Enum):
        INACTIVE = 3
        OFF = 4        
         
-
+"""
 t1 = Incidents()
 print(t1.updateure())   
-        
+"""     

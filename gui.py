@@ -7,9 +7,13 @@ import json
 from PIL import Image, ImageTk
 from datetime import datetime,timedelta
 import time
+import logging
 from queue import Queue
 
 from helperfunctions import Incidents
+
+gui_logger = logging.getLogger(__name__)
+gui_logger.setLevel(logging.INFO)
 
 def threadGui(name,que: Queue, incidenttopic='',swversion='.,.'):
     ## gui
@@ -17,7 +21,7 @@ def threadGui(name,que: Queue, incidenttopic='',swversion='.,.'):
     window = tk.Tk()
     monitors = screeninfo.get_monitors()
     if len(monitors) > 1:
-      print(monitors[1])
+      gui_logger.debug(str(monitors[1]))
       ws = monitors[1].width
       hs = monitors[1].height
       w = ws-7
@@ -32,8 +36,10 @@ def threadGui(name,que: Queue, incidenttopic='',swversion='.,.'):
       # calculate x and y coordinates for the Tk root window
       x = (ws) - (w)
       y = (hs/2) - (h/2)
+    if ws>hs:
+      w = h*2
     window.geometry('%dx%d+%d+%d' % (w, h, x, y))
-    print("screen:"+str(w)+"x"+str(h)+" x="+str(x)+",y="+str(y))
+    gui_logger.debug("screen:"+str(w)+"x"+str(h)+" x="+str(x)+",y="+str(y))
     #Set the Title of Tkinter window
     window.title(str(os.getenv('STATIONNAME'))+' (v'+str(swversion)+')')
     def drawImage(pngdata=None):
@@ -59,28 +65,38 @@ def threadGui(name,que: Queue, incidenttopic='',swversion='.,.'):
            pass
     lastMesTime = datetime.now()-timedelta(days=1)
     lastMes = b""
-    while True:
+    def timerInterrupt():
+       #global window
+       statechanged = incidentsObj.updateure()
+       if statechanged:
+          clearFrame()
+          incidentsObj.update_incidents(window)
+       window.after(200, timerInterrupt)
+       window.update()
+    def checkque():
+        nonlocal lastMesTime
+        nonlocal lastMes
         if not que.empty():
            messageRaw = que.get()
            message = messageRaw['message']
            topic = messageRaw['topic']
            if len(message) < 10:
-              print('no more to display')
+              gui_logger.debug('no more to display')
               window.withdraw()
            elif isinstance(message,bytes) and message != lastMes:
               pngheader = b"\x89\x50\x4E\x47\x0D\x0A"
               if message[:6] == pngheader:
-                print('valid png image')
+                gui_logger.debug('valid png image')
                 drawImage(pngdata=message)
               else:
-                print('recieved incident:'+str(message.decode('utf-8'))+' '+str(topic))
-                if topic == mqttdata['topic']:
+                gui_logger.info('recieved incident:'+str(message.decode('utf-8'))+' '+str(topic))
+                if topic == incidenttopic:
                   incidents = None
                   try:
                     incidents = json.loads(message.decode('utf-8'))
 
                   except:
-                    print('activeincident was invalid json')
+                    gui_logger.warn('activeincident was invalid json')
                   
                   if incidents is not None:
                     clearFrame()
@@ -93,26 +109,37 @@ def threadGui(name,que: Queue, incidenttopic='',swversion='.,.'):
                  #       drawIncident(incident)
                  #     else:
                  #       drawIncident(incident,vconstrain=True)
-                    window.update()
+           window.update()
                 
            lastMesTime = datetime.now()
            lastMes = message
         if lastMesTime+timedelta(minutes=30)<datetime.now():
-           print('no update recieved for a long time')
+           gui_logger.info('no update recieved for a long time')
            if True: #show clock
              clearFrame()
              incidentsObj.update_incidents(window)
-             window.update()
+             
            else:
              window.withdraw()
-           lastMesTime = datetime.now()
-        statechanged = incidentsObj.updateure()
-        if statechanged:
-          clearFrame()
-          incidentsObj.update_incidents(window)
-        window.update()
-        time.sleep(0.5)
-      # window.mainloop()
+           window.update()
+           lastMesTime = datetime.now()       
+        window.after(2000, checkque)
+    timerInterrupt()
+    checkque()
+    
+    window.mainloop()
+
+    
+    #while True:
+        
+        #statechanged = incidentsObj.updateure()
+        #window.after(200, incidentsObj.updateure())
+        #if statechanged:
+        #  clearFrame()
+        #  incidentsObj.update_incidents(window)
+        #window.update()
+        ##time.sleep(1.5)
+        #window.mainloop()
 
 
       
