@@ -9,6 +9,7 @@ import sys
 import time
 
 from helperfunctions import *
+from threadMonitor import ThreadMonitor
 from gui import threadGui
 from mqtt import threadMqtt
 
@@ -55,12 +56,35 @@ threading.excepthook = treads_exception
 load_dotenv()
 mqttdata = json.loads(os.getenv('MQTTDATA'))
 que = Queue(maxsize = 3)
+threadMonitorQue = Queue(maxsize = 20)
+threadmon = ThreadMonitor()
 
 if __name__ == "__main__":
-    guit = threading.Thread(target=threadGui,daemon=True, args=('gui',que), kwargs={'incidenttopic':str(mqttdata['topic']),'swversion':version})
+    guit = threading.Thread(target=threadGui,daemon=True, args=('gui',que,threadMonitorQue), kwargs={'incidenttopic':str(mqttdata['topic']),'swversion':version})
+    threadmon.newThread('gui',timeout=10)
     guit.start()
-    mqttc = threading.Thread(target=threadMqtt,daemon=True, args=('mqttserver',que))
+    mqttc = threading.Thread(target=threadMqtt,daemon=True, args=('mqttserver',que,threadMonitorQue))
+    threadmon.newThread('mqttserver',timeout=100)
     mqttc.start()
 while allok:
-  time.sleep(10)
+  states = threadmon.getStates()
+  que.put({'states':states})
+
+  time.sleep(1)
+
+  while not threadMonitorQue.empty():
+    messageRaw = threadMonitorQue.get()
+    if isinstance(messageRaw,dict):
+      if 'name' in messageRaw.keys() and 'state' in messageRaw.keys():
+        if messageRaw['state'] == 'connecting':
+          newState = ThreadState.CONNECTING
+        elif messageRaw['state'] == 'connected':
+          newState = ThreadState.CONNECTED
+        elif messageRaw['state'] == 'disconnected':
+          newState = ThreadState.DISCONNECTED
+        else:
+          newState = ThreadState.INCONCLUSIVE
+        threadmon.updateState(messageRaw['name'],newState)
+        
+  
 

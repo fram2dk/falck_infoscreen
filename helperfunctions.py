@@ -420,7 +420,16 @@ class State(Enum):
        ACTIVE = 2
        INACTIVE = 3
        OFF = 4        
-        
+class ThreadState(Enum):
+    INIT = 0 #just create no update yet
+    CONNECTING = 1 #commanded to connect no update yet
+    CONNECTED = 2 #connected
+    INCONCLUSIVE = 3 # all not determined
+    DISCONNECTED = 4 #disconnected     
+    def __lt__(self, other):
+      if self.__class__ is other.__class__:
+        return self.value < other.value
+      return NotImplemented
 """
 t1 = Incidents()
 print(t1.updateure())   

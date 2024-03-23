@@ -10,12 +10,12 @@ import time
 import logging
 from queue import Queue
 
-from helperfunctions import Incidents
+from helperfunctions import Incidents,ThreadState
 
 gui_logger = logging.getLogger(__name__)
 gui_logger.setLevel(logging.INFO)
 
-def threadGui(name,que: Queue, incidenttopic='',swversion='.,.'):
+def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.'):
     ## gui
     incidentsObj = Incidents()
     window = tk.Tk()
@@ -53,7 +53,35 @@ def threadGui(name,que: Queue, incidenttopic='',swversion='.,.'):
             label = tk.Label(image=svg_image)
         label.pack()
         window.update()
-      
+    def drawStates(states):
+      #stressurCanvasText = window.create_text(10, 20, fill=textcolor,text='test234',anchor="w", font=("Arial", int(30)))
+      #statelabel = tk.Label(window, textvariable = "test123",font=("Arial", int(60)))
+      appStateCanvas = tk.Frame(window)
+      print(datetime.now().timestamp() )
+      if (int(str(datetime.now().timestamp())[-4]) % 2) == 0:
+        ticktxt = tk.Label(appStateCanvas, text = str('|')[0].upper(),fg='#AAA',font=("Arial", int(8)))
+       
+      else:
+        ticktxt = tk.Label(appStateCanvas, text = str(':'),fg='#FFF',font=("Arial", int(8)))
+      ticktxt.pack(side = tk.LEFT)
+      for appname,appstate in states.items():
+ 
+        if appstate == ThreadState.CONNECTING:
+          textcolor = '#000'
+        elif appstate == ThreadState.CONNECTED:
+          textcolor = '#0F0'
+        elif appstate == ThreadState.INCONCLUSIVE:
+          textcolor = '#00F'  
+        elif appstate == ThreadState.DISCONNECTED:
+          textcolor = '#F00'
+        else:
+          textcolor = '#DDD'
+        tmptxt = tk.Label(appStateCanvas, text = str(appname)[0].upper(),fg=textcolor,font=("Arial", int(10)))
+        tmptxt.pack(side = tk.LEFT)
+     #   appStateCanvas.create_text(10, 20, fill=textcolor,text=str(appname)[0].upper(),anchor="w", font=("Arial", int(textsize)))
+     # stressurCanvasText = self.stressurCanvas.create_text(10, 20, fill=textcolor,text='_',anchor="w", font=("Arial", int(textsize)))
+      appStateCanvas.place(x=1,y=1)
+      window.update()
       
     def clearFrame():
         # destroy all widgets from frame
@@ -75,44 +103,46 @@ def threadGui(name,que: Queue, incidenttopic='',swversion='.,.'):
        window.update()
     def checkque():
         nonlocal lastMesTime
-        nonlocal lastMes
+        nonlocal lastMes        
+        
         if not que.empty():
            messageRaw = que.get()
-           message = messageRaw['message']
-           topic = messageRaw['topic']
-           if len(message) < 10:
-              gui_logger.debug('no more to display')
-              window.withdraw()
-           elif isinstance(message,bytes) and message != lastMes:
-              pngheader = b"\x89\x50\x4E\x47\x0D\x0A"
-              if message[:6] == pngheader:
-                gui_logger.debug('valid png image')
-                drawImage(pngdata=message)
-              else:
-                gui_logger.info('recieved incident:'+str(message.decode('utf-8'))+' '+str(topic))
-                if topic == incidenttopic:
-                  incidents = None
-                  try:
-                    incidents = json.loads(message.decode('utf-8'))
+           if 'mqtt' in messageRaw.keys():
+             message = messageRaw['mqtt']['message']
+             topic = messageRaw['mqtt']['topic']
+             if len(message) < 10:
+                gui_logger.debug('no more to display')
+                window.withdraw()
+             elif isinstance(message,bytes) and message != lastMes:
+                pngheader = b"\x89\x50\x4E\x47\x0D\x0A"
+                if message[:6] == pngheader:
+                  gui_logger.debug('valid png image')
+                  drawImage(pngdata=message)
+                else:
+                  gui_logger.info('recieved incident:'+str(message.decode('utf-8'))+' '+str(topic))
+                  if topic == incidenttopic:
+                    incidents = None
+                    try:
+                      incidents = json.loads(message.decode('utf-8'))
 
-                  except:
-                    gui_logger.warn('activeincident was invalid json')
-                  
-                  if incidents is not None:
-                    clearFrame()
-                    incidentsObj.update_incidents(window,newIncidents=incidents)
+                    except:
+                      gui_logger.warn('activeincident was invalid json')
                     
-                   # print('incidents: '+str(incidents))
-                    
-                 #   for incident in incidents:
-                 #     if len(incidents) <= 1:
-                 #       drawIncident(incident)
-                 #     else:
-                 #       drawIncident(incident,vconstrain=True)
+                    if incidents is not None:
+                      clearFrame()
+                      incidentsObj.update_incidents(window,newIncidents=incidents)
+                      
+             lastMesTime = datetime.now()
+             lastMes = message
+           if 'states' in messageRaw.keys():
+             if isinstance(messageRaw['states'],dict):
+               drawStates(messageRaw['states'])
+               print('from gui: '+str(messageRaw['states'])) 
+             else:
+               print(type(messageRaw['states']))      
            window.update()
                 
-           lastMesTime = datetime.now()
-           lastMes = message
+           
         if lastMesTime+timedelta(minutes=30)<datetime.now():
            gui_logger.info('no update recieved for a long time')
            if True: #show clock
@@ -122,7 +152,8 @@ def threadGui(name,que: Queue, incidenttopic='',swversion='.,.'):
            else:
              window.withdraw()
            window.update()
-           lastMesTime = datetime.now()       
+           lastMesTime = datetime.now()
+        monitorque.put({'name':name,'state':'connected'})
         window.after(2000, checkque)
     timerInterrupt()
     checkque()
