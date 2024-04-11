@@ -58,7 +58,7 @@ def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.
       #statelabel = tk.Label(window, textvariable = "test123",font=("Arial", int(60)))
       appStateCanvas = tk.Frame(window)
       print(datetime.now().timestamp() )
-      if (int(str(datetime.now().timestamp())[-4]) % 2) == 0:
+      if (int(str(datetime.now().timestamp()).replace('.','0')[-4]) % 2) == 0:
         ticktxt = tk.Label(appStateCanvas, text = str('|')[0].upper(),fg='#AAA',font=("Arial", int(8)))
        
       else:
@@ -76,7 +76,7 @@ def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.
           textcolor = '#F00'
         else:
           textcolor = '#DDD'
-        tmptxt = tk.Label(appStateCanvas, text = str(appname)[0].upper(),fg=textcolor,font=("Arial", int(10)))
+        tmptxt = tk.Label(appStateCanvas, text = str(appname)[0].upper(),fg=textcolor,font=("Arial", int(14)))
         tmptxt.pack(side = tk.LEFT)
      #   appStateCanvas.create_text(10, 20, fill=textcolor,text=str(appname)[0].upper(),anchor="w", font=("Arial", int(textsize)))
      # stressurCanvasText = self.stressurCanvas.create_text(10, 20, fill=textcolor,text='_',anchor="w", font=("Arial", int(textsize)))
@@ -105,7 +105,7 @@ def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.
         nonlocal lastMesTime
         nonlocal lastMes        
         
-        if not que.empty():
+        while not que.empty():
            messageRaw = que.get()
            if 'mqtt' in messageRaw.keys():
              message = messageRaw['mqtt']['message']
@@ -140,8 +140,7 @@ def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.
                print('from gui: '+str(messageRaw['states'])) 
              else:
                print(type(messageRaw['states']))      
-           window.update()
-                
+        window.update()                
            
         if lastMesTime+timedelta(minutes=30)<datetime.now():
            gui_logger.info('no update recieved for a long time')

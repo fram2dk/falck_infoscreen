@@ -338,7 +338,7 @@ class Incidents:
         for vechid,vechname in vehicles.items():
           if vechid != 'ISL':
            personel = [None]*int(personelavail)
-           ktsize = {'h':int(150*scaling),'w':int(550*scaling),'xoffs':5,'yoffs':0}      
+           ktsize = {'h':int(150*scaling),'w':int(600*scaling),'xoffs':5,'yoffs':0}      
            c,personelused,filled = drawSeats(vechid,personel,ktsize['h'])
            personelavail -= personelused 
            if c is not None:

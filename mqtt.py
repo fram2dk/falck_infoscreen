@@ -22,6 +22,7 @@ mqttdata = json.loads(os.getenv('MQTTDATA'))
 def threadMqtt(name,respQueue: Queue,monitorque: Queue):
     conntimeout = datetime.now()+timedelta(minutes = 5)
     mqttstate = 'init'
+    lastheartbeatupmqtt = datetime.now()
     ## mqtt
     # The callback for when the client receives a CONNACK response from the server.
     def on_connect(client, userdata, flags, rc):
@@ -50,10 +51,17 @@ def threadMqtt(name,respQueue: Queue,monitorque: Queue):
       
     def on_message(client, userdata, msg):
          nonlocal conntimeout
-         conntimeout = datetime.now()+timedelta(minutes = 120)
+         nonlocal mqttid
+         nonlocal lastheartbeatupmqtt
+         conntimeout = datetime.now()+timedelta(minutes = 1)
          mqtt_logger.debug('recieved message: '+str(len(msg.payload)))
          respQueue.put({'mqtt':{'message':msg.payload,'topic':msg.topic}})
-
+         if lastheartbeatupmqtt+timedelta(minutes=30)<datetime.now():
+           if mqttid is None:
+             mqttid= ''
+           client.publish("struerbrand/status",str(mqttid)+'alive and well listening on :'+str(mqttdata['topic']))
+           lastheartbeatupmqtt = datetime.now()
+    
     def on_queueReq(item):
          client.publish("brandtelegram/test",item)
     def on_log(client, userdata, level, buf):
