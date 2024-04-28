@@ -57,7 +57,7 @@ def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.
       #stressurCanvasText = window.create_text(10, 20, fill=textcolor,text='test234',anchor="w", font=("Arial", int(30)))
       #statelabel = tk.Label(window, textvariable = "test123",font=("Arial", int(60)))
       appStateCanvas = tk.Frame(window)
-      print(datetime.now().timestamp() )
+      #print(datetime.now().timestamp() )
       if (int(str(datetime.now().timestamp()).replace('.','0')[-4]) % 2) == 0:
         ticktxt = tk.Label(appStateCanvas, text = str('|')[0].upper(),fg='#AAA',font=("Arial", int(8)))
        
@@ -137,7 +137,7 @@ def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.
            if 'states' in messageRaw.keys():
              if isinstance(messageRaw['states'],dict):
                drawStates(messageRaw['states'])
-               print('from gui: '+str(messageRaw['states'])) 
+               #print('from gui: '+str(messageRaw['states'])) 
              else:
                print(type(messageRaw['states']))      
         window.update()                

@@ -33,7 +33,7 @@ class ThreadMonitor:
     if str(name) in self.threads.keys():
       self.threads[str(name)]['timestamp'] = datetime.now()
       self.threads[str(name)]['state'] = newState
-      print('State update: '+str(name)+' -> '+str(newState)) 
+      #print('State update: '+str(name)+' -> '+str(newState)) 
       return True
     else:
       return False  

@@ -67,8 +67,9 @@ if __name__ == "__main__":
     threadmon.newThread('mqttserver',timeout=100)
     mqttc.start()
 while allok:
-  states = threadmon.getStates()
-  que.put({'states':states})
+  if not que.full():
+    states = threadmon.getStates()
+    que.put({'states':states})
 
   time.sleep(1)
 

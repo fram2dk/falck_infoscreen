@@ -120,7 +120,10 @@ class Incidents:
             if isinactive and self.state == State.ACTIVE:
               self.state = State.INACTIVE
               stateChanged = True
-              self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to inactive'+str(self.rawdict['endtime']))
+              printtime = ''
+              if 'endtime' in self.rawdict:
+                printtime = str(self.rawdict['endtime'])
+              self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to inactive'+printtime)
           if self.state == State.INACTIVE:
               if 'endtime' in self.rawdict:
                 indstatstid = datetime.fromtimestamp(int(self.rawdict['endtime']))-datetime.fromtimestamp(int(self.rawdict['starttime']))
