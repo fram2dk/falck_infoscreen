@@ -2,9 +2,9 @@
 import tkinter as tk
 import screeninfo
 import os
-import tksvg
+#import tksvg
 import json
-from PIL import Image, ImageTk
+#from PIL import Image, ImageTk
 from datetime import datetime,timedelta
 import time
 import logging

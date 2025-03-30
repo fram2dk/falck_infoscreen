@@ -97,7 +97,7 @@ class Incidents:
  
       if isinstance(self.rawdict,dict):
         if 'starttime' in self.rawdict:
-          stresstid = datetime.now()-datetime.fromtimestamp(int(self.rawdict['starttime']))+timedelta(seconds=20)
+          stresstid = datetime.now()-datetime.fromtimestamp(int(self.rawdict['starttime']))+timedelta(seconds=0)
           if stresstid.total_seconds() < udkaldTimeCalling: #60*10
             if self.state != State.CALLING:
               self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to calling') 
@@ -298,7 +298,8 @@ class Incidents:
           else:
             if meldingsplit is not None:
               melding = meldingsplit[0]
-              meldSpecifik = str('\n'.join(meldingsplit[1:]))          
+              meldSpecifik = str(textwrap.fill('\n'.join(meldingsplit[1:]),replace_whitespace=False,width=30))
+              
           
         frame = self.drawingFrame
         frame.configure(text=str(melding)) 

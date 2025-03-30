@@ -32,7 +32,7 @@ filehandler.setLevel(logging.WARN)
 filehandler.setFormatter(formatter)
 logger.addHandler(filehandler)
 
-version = '110424a'
+version = '300325a'
 allok = True
 
 def handle_exception(exc_type, exc_value, exc_traceback):
