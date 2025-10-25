@@ -9,6 +9,8 @@ import json
 import logging
 import random
 import uuid
+import traceback
+
 from datetime import datetime,timedelta,timezone
 from dotenv import load_dotenv
 
@@ -24,6 +26,7 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
     mqttstate = 'init'
     lastheartbeatupmqtt = datetime.now()
     mqttbasetopic = str(mqttdata['topic'].split('/')[0])
+    mqttcmdtopic = str(mqttbasetopic)+"/toScreen/instance/"+str(instanceid)+"/cmd"
     ## mqtt
     # The callback for when the client receives a CONNACK response from the server.
     def on_connect(client, userdata, flags, rc):
@@ -31,6 +34,7 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
          mqtt_logger.info("Connected with result code "+str(rc))
          client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid), json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'screen logged on','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
          client.subscribe(mqttdata['topic'])
+         client.subscribe(mqttcmdtopic)
          conntimeout = datetime.now()+timedelta(days = 1)
          monitorque.put({'name':name,'state':'connected'})
     # The callback for when a PUBLISH message is received from the server.
@@ -55,12 +59,33 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
          nonlocal mqttid
          nonlocal lastheartbeatupmqtt
          conntimeout = datetime.now()+timedelta(minutes = 1)
-         mqtt_logger.debug('recieved message: '+str(len(msg.payload)))
-         respQueue.put({'mqtt':{'message':msg.payload,'topic':msg.topic}})
-         if lastheartbeatupmqtt+timedelta(minutes=30)<datetime.now():
-           client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid),json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'alive and well','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
-           lastheartbeatupmqtt = datetime.now()
-    
+         if msg.topic == mqttdata['topic']:
+           mqtt_logger.debug('recieved message: '+str(len(msg.payload)))
+           
+           respQueue.put({'mqtt':{'message':msg.payload,'topic':msg.topic}})
+           if lastheartbeatupmqtt+timedelta(minutes=30)<datetime.now():
+             client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid),json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'alive and well','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
+             lastheartbeatupmqtt = datetime.now()
+         if msg.topic == mqttcmdtopic:
+           mqtt_logger.debug('recieved command: '+str(len(msg.payload)))
+           try:
+             cmdPayload = json.loads(msg.payload)
+             if cmdPayload['cmd'] == 'screenshot':
+               payloadReturn = {'msg':None}
+               try:
+                 scrnPath = os.path.join('/run/user/1000'+'scrn.png')
+                 #scrnPath = os.path.join('/home/vboxuser/python/stationscreen/falck_infoscreen/'+'test1.png')
+                 if os.path.exists(scrnPath):
+                   payloadReturn['image'] = None
+                   with open(str(scrnPath),'rb') as image_file:
+                     payloadReturn['image'] = base64.b64encode(image_file.read()).decode('utf-8')
+                   payloadReturn['filetimestamp'] = int(os.stat(scrnPath).st_ctime)
+                   print(payloadReturn['meta'])
+               except Exception as e:
+                 mqtt_logger.warn('screenshot not returned fully:'+str(traceback.format_exc()))  
+               client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid)+"/screenshot",json.dumps(payloadReturn))
+           except:
+             mqtt_logger.warn('some basic went wrong handling received command')    
     def on_queueReq(item):
          client.publish("brandtelegram/test",item)
     def on_log(client, userdata, level, buf):
