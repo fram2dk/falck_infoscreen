@@ -5,6 +5,8 @@ import os
 #import tksvg
 import json
 #from PIL import Image, ImageTk
+#from PIL import ImageGrab
+import pyscreenshot as ImageGrab
 from datetime import datetime,timedelta
 import time
 import logging
@@ -15,7 +17,7 @@ from helperfunctions import Incidents,ThreadState
 gui_logger = logging.getLogger(__name__)
 gui_logger.setLevel(logging.INFO)
 
-def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.'):
+def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic='',swversion='.,.',instanceid='ABC'):
     ## gui
     incidentsObj = Incidents()
     window = tk.Tk()
@@ -99,12 +101,21 @@ def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.
        if statechanged:
           clearFrame()
           incidentsObj.update_incidents(window)
+          statusque.put({"Incident states":incidentsObj.getStates()})
+          print('statusque apppended')
+
+       if int(datetime.now().timestamp()) % 60 == 0:
+         print('will make screenshot')
+         #widgetsize = (window.winfo_rootx(),window.winfo_rooty(),window.winfo_rootx()+window.winfo_width(),window.winfo_rooty()+window.winfo_height())
+         #im = ImageGrab.grab()
+         #im.save('screen'+str(int(datetime.now().timestamp()))[:5]+'.png')
+         #time.sleep(1)
        window.after(200, timerInterrupt)
-       window.update()
+       window.update()        
+         
     def checkque():
         nonlocal lastMesTime
-        nonlocal lastMes        
-        
+        nonlocal lastMes
         while not que.empty():
            messageRaw = que.get()
            if 'mqtt' in messageRaw.keys():
@@ -124,14 +135,17 @@ def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.
                     incidents = None
                     try:
                       incidents = json.loads(message.decode('utf-8'))
-
+                      gui_logger.info("there were "+str(len(incidents))+" incidents in the message")
                     except:
                       gui_logger.warn('activeincident was invalid json')
                     
                     if incidents is not None:
                       clearFrame()
                       incidentsObj.update_incidents(window,newIncidents=incidents)
+                      #gui_logger.debug("Incident states: "+str(incidentsObj))
                       
+                    else:
+                      gui_logger.debug("Incidents was not update")
              lastMesTime = datetime.now()
              lastMes = message
            if 'states' in messageRaw.keys():
@@ -147,6 +161,7 @@ def threadGui(name,que: Queue,monitorque: Queue, incidenttopic='',swversion='.,.
            if True: #show clock
              clearFrame()
              incidentsObj.update_incidents(window)
+             statusque.put({"reason":"no update recieved for a long time","incidentstates":incidentsObj.getStates()})
              
            else:
              window.withdraw()

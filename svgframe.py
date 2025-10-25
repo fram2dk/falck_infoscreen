@@ -1,12 +1,16 @@
 #!/usr/bin/python3
 import json
 import os
+import base64
+import random
+import uuid
 from dotenv import load_dotenv
 from queue import Queue
 import threading
 import logging
 import sys
 import time
+
 
 from helperfunctions import *
 from threadMonitor import ThreadMonitor
@@ -32,7 +36,8 @@ filehandler.setLevel(logging.WARN)
 filehandler.setFormatter(formatter)
 logger.addHandler(filehandler)
 
-version = '300325a'
+version = '221025a'
+instanceid = str(base64.b64encode(uuid.getnode().to_bytes(6,'big')).decode("ascii"))
 allok = True
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -55,22 +60,22 @@ threading.excepthook = treads_exception
 
 load_dotenv()
 mqttdata = json.loads(os.getenv('MQTTDATA'))
-que = Queue(maxsize = 3)
+incidentsque = Queue(maxsize = 3)
+statusque = Queue(maxsize = 5)
 threadMonitorQue = Queue(maxsize = 20)
 threadmon = ThreadMonitor()
 
 if __name__ == "__main__":
-    guit = threading.Thread(target=threadGui,daemon=True, args=('gui',que,threadMonitorQue), kwargs={'incidenttopic':str(mqttdata['topic']),'swversion':version})
+    guit = threading.Thread(target=threadGui,daemon=True, args=('gui',incidentsque,statusque,threadMonitorQue), kwargs={'incidenttopic':str(mqttdata['topic']),'swversion':version,'instanceid':instanceid})
     threadmon.newThread('gui',timeout=10)
     guit.start()
-    mqttc = threading.Thread(target=threadMqtt,daemon=True, args=('mqttserver',que,threadMonitorQue))
+    mqttc = threading.Thread(target=threadMqtt,daemon=True, args=('mqttserver',incidentsque,statusque,threadMonitorQue), kwargs={'swversion':version,'instanceid':instanceid})
     threadmon.newThread('mqttserver',timeout=100)
     mqttc.start()
 while allok:
-  if not que.full():
+  if not incidentsque.full():
     states = threadmon.getStates()
-    que.put({'states':states})
-
+    incidentsque.put({'states':states})
   time.sleep(1)
 
   while not threadMonitorQue.empty():

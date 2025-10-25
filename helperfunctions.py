@@ -37,12 +37,21 @@ class Incidents:
   def update_incidents(self,curWindow,newIncidents=None):
     if newIncidents is not None:
       for incident in newIncidents:
-        if 'id' in incident:
-          newid = incident['id']
-          if newid not in self.allincidents.keys():
-            self.allincidents[newid] = self.Incident(newid)
-          if newid in self.allincidents.keys():
-            self.allincidents[newid].update(incident)
+        try:
+          incidentpayload = json.loads(incident['payload'])
+          try:  
+            if 'id' in incidentpayload:
+              newid = incidentpayload['id'] 
+              if newid not in self.allincidents.keys():
+                self.allincidents[newid] = self.Incident(newid)
+              if newid in self.allincidents.keys():
+                self.allincidents[newid].update(incidentpayload)
+          except:
+            print("unable to handle incident:"+str(incidentpayload))
+        except:
+          print("json payload invalid on incident:"+str(incident['payload']))
+
+          #self.logger.warn("unable to handle incident:"+str(incident))
     #check overall statuses
     stateview = {0:0,1:0,2:0,3:0,4:0,5:0,6:0}
     for incidentid,incidentObj in self.allincidents.items():
@@ -56,6 +65,7 @@ class Incidents:
          self.clockstr = tk.StringVar(curWindow)
        clocklabel = tk.Label(curWindow, textvariable = self.clockstr,font=("Arial", int(160*scaling)))
        clocklabel.pack(fill='x',expand=True)
+       
     for incidentid,incidentObj in self.allincidents.items():
        if stateview[1]+stateview[2]+stateview[3] >= 3:
           incidentObj.setConstrain(True)
@@ -63,13 +73,31 @@ class Incidents:
           incidentObj.setConstrain(False)
        if incidentObj.rawdict != '' and incidentObj.state != State.OFF:
          incidentObj.drawIncident(curWindow)
-    
+    return None
+
+  def getStates(self):
+    retstr = []
+    if len(self.allincidents.keys()) >= 1:
+      for incidentid,incidentObj in self.allincidents.items():
+        retstr.append({'incidentid':int(incidentid),'state':incidentObj.state.value})
+    return retstr
+
+  def __str__(self):
+    retstr = ""
+    if len(self.allincidents.keys()) >= 1:
+      for incidentid,incidentObj in self.allincidents.items():
+        retstr += ","+str(incidentid)+"state:"+str(incidentObj.state.value)
+    # toreturn += str(len(self.allincidents.keys()))+"stk. incidents i listen"
+    else:
+      retstr = "ingen incidents i listen"
+    return retstr
     
   class Incident:
     
     def __init__(self, incidentid):
       self.incidentid = incidentid
       self.rawdict = ''
+      self.lastupdatetime = datetime.now()
       self.state = State.OFF
       self.constrained = False
       self.drawingFrame = None
@@ -82,6 +110,7 @@ class Incidents:
     def setConstrain(self,newvalue):
       self.constrained = bool(newvalue)
     def update(self,newdict):
+      self.lastupdatetime = datetime.now()
       if newdict != self.rawdict:
         self.rawdict = newdict
         self.logger.info(inspect.currentframe().f_code.co_name+' - ny melding'+str(self.rawdict))
@@ -98,6 +127,17 @@ class Incidents:
       if isinstance(self.rawdict,dict):
         if 'starttime' in self.rawdict:
           stresstid = datetime.now()-datetime.fromtimestamp(int(self.rawdict['starttime']))+timedelta(seconds=0)
+          if self.state == State.OFF:
+            if stresstid.total_seconds() <= udkaldTimeCalling:
+              self.state = State.CALLING
+              stateChanged = True
+            elif stresstid.total_seconds() <= udkaldTimeActive:
+              self.state = State.ACTIVE
+              stateChanged = True
+            elif stresstid.total_seconds() <= 3600*24:
+              self.state = State.INACTIVE
+              stateChanged = True
+              
           if stresstid.total_seconds() < udkaldTimeCalling: #60*10
             if self.state != State.CALLING:
               self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to calling') 
@@ -114,7 +154,8 @@ class Incidents:
               if datetime.now() > datetime.fromtimestamp(int(self.rawdict['endtime'])):
                 isinactive = True
             else:
-              if stresstid.total_seconds() > udkaldTimeActive:
+              if stresstid.total_seconds() > udkaldTimeActive and self.lastupdatetime < datetime.now()-timedelta(minutes=15):
+              # kun hvis der ikke sendes flere opdateringer/resend om denne incident:
                 isinactive = True
                 
             if isinactive and self.state == State.ACTIVE:
@@ -141,11 +182,11 @@ class Incidents:
                 else:
                   udkaldstid += ' min.'
                   
-                udkaldstid += datetime.fromtimestamp(int(self.rawdict['starttime'])).strftime(' udkaldstidpunkt: %H:%M:%S ')
+                udkaldstid += "   udkald kl. "+datetime.fromtimestamp(int(self.rawdict['starttime'])).strftime('%H:%M:%S')+" hjem kl."+datetime.fromtimestamp(int(self.rawdict['endtime'])).strftime('%H:%M:%S')
 
                 
-                  
-                self.stressurCanvas.itemconfig(self.stressurCanvasText, text=udkaldstid)
+                if self.stressurCanvas is not None:   
+                  self.stressurCanvas.itemconfig(self.stressurCanvasText, text=udkaldstid)
               if stresstid.total_seconds() >= udkaldTimeExpired:
                 self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to off')
                 self.state = State.OFF
@@ -181,6 +222,9 @@ class Incidents:
       meldingsplit = None
       if 'melding' in incident:
         meldingsplit = incident['melding'].splitlines()
+        if len(meldingsplit) <= 2:
+          meldingsplit = None
+        
       if self.state == State.ACTIVE or self.state == State.INACTIVE:
         textcolor = '#000'
         if self.state == State.INACTIVE:
@@ -194,10 +238,10 @@ class Incidents:
         frame = self.drawingFrame
         rownum = 0
         indsatstidLabelMes = tk.Message(frame,aspect=500, fg=textcolor,text = 'Indsats tid:',font=("Arial", int(textsize)))
-        self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=500, height=50)
-        self.stressurCanvasBg = round_rectangle(self.stressurCanvas,0, 0, 410, 120, radius=20, fill='')
-        self.stressurCanvasText = self.stressurCanvas.create_text(10, 20, fill=textcolor,text='_',anchor="w", font=("Arial", int(textsize)))
-        self.stressurCanvas.grid(column=1, row=rownum)
+        self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=1000, height=50)
+        self.stressurCanvasBg = round_rectangle(self.stressurCanvas,0, 0, 2, 2, radius=20, fill='#000')
+        self.stressurCanvasText = self.stressurCanvas.create_text(10, 30, fill=textcolor,text='_',anchor="w", font=("Arial", int(textsize)))
+        self.stressurCanvas.grid(sticky="w",column=1, row=rownum)
         indsatstidLabelMes.grid(column=0, row=rownum)
         rownum += 1
         
@@ -209,6 +253,20 @@ class Incidents:
           else:
             frame.configure(text=str(meldingsplit[0]))
             melding = textwrap.fill('\n'.join(meldingsplit[1:]),replace_whitespace=False,width=25)
+        else:
+          if 'meldingdata' in incident:
+            if isinstance(incident['meldingdata'],dict):
+              frame.configure(text=str(incident['meldingdata']['melding']))
+              melding = ""
+              if 'melding_specifik' in incident['meldingdata']:
+                melding += str(incident['meldingdata']['melding_specifik'])+"\n"
+              if 'crew' in incident['meldingdata']:
+                for vechid in incident['meldingdata']['crew'].keys():
+                  if vechid in incident['vehicles'].keys():
+                    melding += incident['vehicles'][str(vechid)]+","
+                melding += "\n"
+                if 'melding' in incident:
+                  melding += str(incident['melding'])+"\n"
         meldingMesMes = tk.Message(frame,aspect=500, fg=textcolor,text = str(melding),anchor="w",font=("Arial", int(textsize)))
         meldingLabelMes.grid(column=0, row=rownum)
         meldingMesMes.grid(sticky="W",column=1, row=rownum)
@@ -271,7 +329,12 @@ class Incidents:
             
         meldSpecifik = None
         fuldmelding =  " "
-        vehicles = json.loads(incident['vehicles'])
+        if isinstance(incident['vehicles'],str):
+          vehicles = json.loads(incident['vehicles'])
+        elif isinstance(incident['vehicles'],dict):
+          vehicles = incident['vehicles']
+        else:
+          vehicles = {}
         if 'meldingdata' in incident:
           if isinstance(incident['meldingdata'],dict):
             melding = str(incident['meldingdata']['melding'])
@@ -295,6 +358,7 @@ class Incidents:
                 if 'meldingsKode' in incident['meldingdata']:
                   start = 2
                 fuldmelding =  "\n".join(meldingsplit[start:end])
+                
           else:
             if meldingsplit is not None:
               melding = meldingsplit[0]

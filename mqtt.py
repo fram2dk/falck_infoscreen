@@ -9,7 +9,7 @@ import json
 import logging
 import random
 import uuid
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta,timezone
 from dotenv import load_dotenv
 
 mqtt_logger = logging.getLogger(__name__)
@@ -19,16 +19,17 @@ load_dotenv()
 mqttdata = json.loads(os.getenv('MQTTDATA'))
 
 
-def threadMqtt(name,respQueue: Queue,monitorque: Queue):
+def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incidenttopic='',swversion='.,.',instanceid='ABC'):
     conntimeout = datetime.now()+timedelta(minutes = 5)
     mqttstate = 'init'
     lastheartbeatupmqtt = datetime.now()
+    mqttbasetopic = str(mqttdata['topic'].split('/')[0])
     ## mqtt
     # The callback for when the client receives a CONNACK response from the server.
     def on_connect(client, userdata, flags, rc):
          nonlocal conntimeout
          mqtt_logger.info("Connected with result code "+str(rc))
-         client.publish("struerbrand/status",'screen logged on')
+         client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid), json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'screen logged on','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
          client.subscribe(mqttdata['topic'])
          conntimeout = datetime.now()+timedelta(days = 1)
          monitorque.put({'name':name,'state':'connected'})
@@ -57,9 +58,7 @@ def threadMqtt(name,respQueue: Queue,monitorque: Queue):
          mqtt_logger.debug('recieved message: '+str(len(msg.payload)))
          respQueue.put({'mqtt':{'message':msg.payload,'topic':msg.topic}})
          if lastheartbeatupmqtt+timedelta(minutes=30)<datetime.now():
-           if mqttid is None:
-             mqttid= ''
-           client.publish("struerbrand/status",str(mqttid)+'alive and well listening on :'+str(mqttdata['topic']))
+           client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid),json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'alive and well','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
            lastheartbeatupmqtt = datetime.now()
     
     def on_queueReq(item):
@@ -103,11 +102,13 @@ def threadMqtt(name,respQueue: Queue,monitorque: Queue):
         time.sleep(10)
         
     mqtt_logger.debug('connected?')
-    client.loop_forever()
-    #while datetime.now() < conntimeout:
-    #   client.loop_start()
-    #   time.sleep(0.5)
-    #   client.loop_stop()
+    #client.loop_forever()
+    while True: #datetime.now() < conntimeout:
+       client.loop_start()
+       while not statusQueue.empty():
+         client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid)+"/incidentupdate",json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':json.dumps(statusQueue.get())}))
+       time.sleep(0.5)
+       client.loop_stop()
     raise "MQTT ended due to timeout reached"
        
        
