@@ -190,9 +190,10 @@ class Incidents:
                 udkaldstid += "   udkald kl. "+datetime.fromtimestamp(int(self.rawdict['starttime'])).strftime('%H:%M:%S')+" hjem kl."+datetime.fromtimestamp(int(self.rawdict['endtime'])).strftime('%H:%M:%S')
 
                 
-                if self.stressurCanvas is not None:   
+                if self.stressurCanvas is not None:
+                  print(udkaldstid)  
                   self.stressurCanvas.itemconfig(self.stressurCanvasText, text=udkaldstid)
-              if stresstid.total_seconds() >= udkaldTimeExpired:
+              if stresstid.total_seconds() >= 3600*24:
                 self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to off')
                 self.state = State.OFF
                 stateChanged = True

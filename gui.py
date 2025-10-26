@@ -155,8 +155,9 @@ def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic=
              else:
                print(type(messageRaw['states']))
            if 'init' in messageRaw.keys():
-             if messageRaw['init']:
-               incidentsObj = Incidents() #reset all incidents
+             if messageRaw['init']:  
+               incidentsObj.__init__() #reset all incidents
+               pass
         window.update()                
            
         if lastMesTime+timedelta(minutes=30)<datetime.now():
