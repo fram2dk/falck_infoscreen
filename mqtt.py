@@ -73,7 +73,7 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
              if cmdPayload['cmd'] == 'screenshot':
                payloadReturn = {'msg':None}
                try:
-                 scrnPath = os.path.join('/run/user/1000'+'scrn.png')
+                 scrnPath = os.path.join('/run/user/1000/'+'scrn.png')
                  #scrnPath = os.path.join('/home/vboxuser/python/stationscreen/falck_infoscreen/'+'test1.png')
                  if os.path.exists(scrnPath):
                    payloadReturn['image'] = None
@@ -84,6 +84,13 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
                except Exception as e:
                  mqtt_logger.warn('screenshot not returned fully:'+str(traceback.format_exc()))  
                client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid)+"/screenshot",json.dumps(payloadReturn))
+             if cmdPayload['cmd'] == 'listentopics':
+               if isinstance(cmdPayload['topics'],list):
+                 if len(cmdPayload['topics']) >= 1:
+                   for topic in cmdPayload['topics']:
+                     client.subscribe(topic)
+             if cmdPayload['cmd'] == 'initIncidents':
+               respQueue.put({'init':True})
            except:
              mqtt_logger.warn('some basic went wrong handling received command')    
     def on_queueReq(item):

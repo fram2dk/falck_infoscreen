@@ -36,7 +36,7 @@ filehandler.setLevel(logging.WARN)
 filehandler.setFormatter(formatter)
 logger.addHandler(filehandler)
 
-version = '251025a'
+version = '261025a'
 instanceid = str(base64.b64encode(uuid.getnode().to_bytes(6,'big')).decode("ascii"))
 allok = True
 

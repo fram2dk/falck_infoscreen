@@ -19,6 +19,7 @@ print('scalering'+str(scaling))
 class Incidents:
   def __init__(self):
     self.allincidents = {}
+    self.initstates = True
     self.displayclock = False
     self.clockstr = None
     self.listActiveIncidents = []
@@ -33,6 +34,10 @@ class Incidents:
       if self.clockstr is not None:
         self.clockstr.set(datetime.now().strftime('%H:%M:%S'))
         #self.logger.debug(inspect.currentframe().f_code.co_name+' - '+str(self.clockstr.get()))
+    if self.initstates:
+      self.initstates = False
+      return True
+    
     return False #statechanged
   def update_incidents(self,curWindow,newIncidents=None):
     if newIncidents is not None:
