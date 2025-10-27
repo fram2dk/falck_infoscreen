@@ -143,7 +143,7 @@ def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic=
                       clearFrame()
                       incidentsObj.update_incidents(window,newIncidents=incidents)
                       #gui_logger.debug("Incident states: "+str(incidentsObj))
-                      
+                      statusque.put({"reason":"received some incidents","incidentstates":incidentsObj.getStates()})
                     else:
                       gui_logger.debug("Incidents was not update")
              lastMesTime = datetime.now()
@@ -161,14 +161,10 @@ def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic=
         window.update()                
            
         if lastMesTime+timedelta(minutes=30)<datetime.now():
-           gui_logger.info('no update recieved for a long time')
-           if True: #show clock
-             clearFrame()
-             incidentsObj.update_incidents(window)
-             statusque.put({"reason":"no update recieved for a long time","incidentstates":incidentsObj.getStates()})
-             
-           else:
-             window.withdraw()
+           gui_logger.info('no update received for a long time')
+           clearFrame()
+           incidentsObj.update_incidents(window)
+           statusque.put({"reason":"no update received for a long time","incidentstates":incidentsObj.getStates()})
            window.update()
            lastMesTime = datetime.now()
         monitorque.put({'name':name,'state':'connected'})
