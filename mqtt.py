@@ -114,8 +114,8 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
     except:
       mqtt_logger.warn('station name not set')
     mqttid +=  str(base64.b64encode(uuid.getnode().to_bytes(6,'big')).decode("ascii"))
-    print(mqttid)
-    client = mqtt.Client(mqttid)
+    mqttid = str(mqttid.encode('ascii',errors='ignore'))
+    client = mqtt.Client(client_id=mqttid)
     while mqttstate == 'init':
       client.reinitialise()
       client.on_connect = on_connect
