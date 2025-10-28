@@ -43,18 +43,24 @@ class Incidents:
     if newIncidents is not None:
       for incident in newIncidents:
         try:
-          incidentpayload = json.loads(incident['payload'])
-          try:  
-            if 'id' in incidentpayload:
-              newid = incidentpayload['id'] 
-              if newid not in self.allincidents.keys():
-                self.allincidents[newid] = self.Incident(newid)
-              if newid in self.allincidents.keys():
-                self.allincidents[newid].update(incidentpayload)
-          except:
-            print("unable to handle incident:"+str(incidentpayload))
+          if isinstance(incident['payload'],str):
+            incidentpayload = json.loads(incident['payload'])
+          else:
+            incidentpayload = incident['payload']
+          if isinstance(incidentpayload,dict):  
+            try:  
+              if 'id' in incidentpayload:
+                newid = incidentpayload['id'] 
+                if newid not in self.allincidents.keys():
+                  self.allincidents[newid] = self.Incident(newid)
+                if newid in self.allincidents.keys():
+                  self.allincidents[newid].update(incidentpayload)
+            except:
+              print("unable to handle incident:"+str(incidentpayload))
+          else:
+            print("unable to type"+str(typeof(incident['payload']))+"handle incident:"+str(incident['payload']))
         except:
-          print("json payload invalid on incident:"+str(incident['payload']))
+          print("incd payload invalid on incident:"+str(incident['payload'])+"   "+str(traceback.format_exc()))
 
           #self.logger.warn("unable to handle incident:"+str(incident))
     #check overall statuses

@@ -104,12 +104,6 @@ def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic=
           statusque.put({"Incident states":incidentsObj.getStates()})
           print('statusque apppended')
 
-       if int(datetime.now().timestamp()) % 60 == 0:
-         print('will make screenshot')
-         #widgetsize = (window.winfo_rootx(),window.winfo_rooty(),window.winfo_rootx()+window.winfo_width(),window.winfo_rooty()+window.winfo_height())
-         #im = ImageGrab.grab()
-         #im.save('screen'+str(int(datetime.now().timestamp()))[:5]+'.png')
-         #time.sleep(1)
        window.after(200, timerInterrupt)
        window.update()        
          

@@ -9,7 +9,6 @@ import json
 import logging
 import random
 import uuid
-import string
 import traceback
 
 from datetime import datetime,timedelta,timezone
@@ -28,12 +27,13 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
     lastheartbeatupmqtt = datetime.now()
     mqttbasetopic = str(mqttdata['topic'].split('/')[0])
     mqttcmdtopic = str(mqttbasetopic)+"/toScreen/instance/"+str(instanceid)+"/cmd"
+    mqttsendtopic = str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid)
     ## mqtt
     # The callback for when the client receives a CONNACK response from the server.
     def on_connect(client, userdata, flags, rc):
          nonlocal conntimeout
          mqtt_logger.info("Connected with result code "+str(rc))
-         client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid), json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'screen logged on','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
+         client.publish(mqttsendtopic, json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'screen logged on','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
          client.subscribe(mqttdata['topic'])
          client.subscribe(mqttcmdtopic)
          conntimeout = datetime.now()+timedelta(days = 1)
@@ -65,7 +65,7 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
            
            respQueue.put({'mqtt':{'message':msg.payload,'topic':msg.topic}})
            if lastheartbeatupmqtt+timedelta(minutes=30)<datetime.now():
-             client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid),json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'alive and well','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
+             client.publish(mqttsendtopic,json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'alive and well','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
              lastheartbeatupmqtt = datetime.now()
          if msg.topic == mqttcmdtopic:
            mqtt_logger.debug('recieved command: '+str(len(msg.payload)))
@@ -113,15 +113,17 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
       mqttid = str(os.getenv('STATIONNAME'))+'-'
     except:
       mqtt_logger.warn('station name not set')
-    mqttid +=  str(base64.b64encode(uuid.getnode().to_bytes(6,'big')).decode("ascii")) 
-    mqttid = str(mqttid.encode('ascii',errors='ignore'))
-    client = mqtt.Client(client_id=mqttid)
+    mqttid +=  str(base64.b64encode(uuid.getnode().to_bytes(6,'big')).decode("ascii"))
+    print(mqttid)
+    client = mqtt.Client(mqttid)
     while mqttstate == 'init':
       client.reinitialise()
       client.on_connect = on_connect
       client.on_disconnect = on_disconnect
       client.on_message = on_message
       client.on_log = on_log
+      client.will_set(str(mqttsendtopic), \
+        payload=json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'disconnected'}),qos=2,retain=False)
       client.username_pw_set(mqttdata['user']['name'], mqttdata['user']['password'])
 
       mqtt_logger.debug("connecting to broker")
