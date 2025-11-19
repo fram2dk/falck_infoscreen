@@ -8,6 +8,7 @@ import sys
 import json
 import logging
 import random
+import string
 import uuid
 import traceback
 
@@ -33,6 +34,7 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
     def on_connect(client, userdata, flags, rc):
          nonlocal conntimeout
          mqtt_logger.info("Connected with result code "+str(rc))
+         time.sleep(1)
          client.publish(mqttsendtopic, json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'screen logged on','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
          client.subscribe(mqttdata['topic'])
          client.subscribe(mqttcmdtopic)
@@ -109,13 +111,17 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
        client.tls_set(ca_certs=cafile, certfile=certfile, keyfile=keyfile, tls_version=ssl.PROTOCOL_TLS, cert_reqs=ssl.CERT_REQUIRED)
        client.tls_insecure_set(True)
        client.connect(mqttdata['server']['hostname'], mqttdata['server']['port'], 53)
+       time.sleep(0.1)
     try:
       mqttid = str(os.getenv('STATIONNAME'))+'-'
     except:
       mqtt_logger.warn('station name not set')
     mqttid +=  str(base64.b64encode(uuid.getnode().to_bytes(6,'big')).decode("ascii"))
     mqttid = str(mqttid.encode('ascii',errors='ignore'))
-    client = mqtt.Client(client_id=mqttid)
+    #if len(mqttid) < 3:
+    mqttid2 = ''.join(random.choice(string.ascii_letters) for _ in range(3))
+    mqtt_logger.debug("my mqttid:"+str(mqttid))  
+    client = mqtt.Client(client_id=str(mqttid2))
     while mqttstate == 'init':
       client.reinitialise()
       client.on_connect = on_connect

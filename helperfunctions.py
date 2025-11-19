@@ -278,7 +278,7 @@ class Incidents:
                     melding += incident['vehicles'][str(vechid)]+","
                 melding += "\n"
                 if 'melding' in incident:
-                  melding += str(incident['melding'])+"\n"
+                  melding += textwrap.fill(str(incident['melding']),replace_whitespace=False,width=25)+"\n"
         meldingMesMes = tk.Message(frame,aspect=500, fg=textcolor,text = str(melding),anchor="w",font=("Arial", int(textsize)))
         meldingLabelMes.grid(column=0, row=rownum)
         meldingMesMes.grid(sticky="W",column=1, row=rownum)
@@ -347,15 +347,15 @@ class Incidents:
           vehicles = incident['vehicles']
         else:
           vehicles = {}
-        if 'meldingdata' in incident:
-          if isinstance(incident['meldingdata'],dict):
-            melding = str(incident['meldingdata']['melding'])
-            if 'melding_specifik' in incident['meldingdata']:
-              meldSpecifik = str(incident['meldingdata']['melding_specifik'])
+        if 'incident_type' in incident:
+          if isinstance(incident['incident_type'],dict):
+            melding = str(incident['incident_type']['melding'])
+            if 'melding_specifik' in incident['incident_type']:
+              meldSpecifik = str(incident['incident_type']['melding_specifik'])
     
-            if 'crew' in incident['meldingdata']:
+            if 'crew' in incident['incident_type']:
               newvehicles = {}
-              for vechid in incident['meldingdata']['crew'].keys(): #sorter rækkefølge
+              for vechid in incident['incident_type']['crew'].keys(): #sorter rækkefølge
                 if str(vechid) in vehicles.keys():
                   newvehicles[str(vechid)] = vehicles[str(vechid)]
               for vechid,vechname in vehicles.items():
@@ -365,9 +365,9 @@ class Incidents:
               if meldingsplit is not None:
                 start = 0
                 end = len(meldingsplit)
-                if len(vehicles) > 0 and 'meldKode' in incident['meldingdata']:
+                if len(vehicles) > 0 and 'short_code' in incident['incident_type']:
                   start = 1
-                if 'meldingsKode' in incident['meldingdata']:
+                if 'short_code' in incident['incident_type']:
                   start = 2
                 fuldmelding =  "\n".join(meldingsplit[start:end])
                 
@@ -406,13 +406,18 @@ class Incidents:
         extracrew = 0
         if 'crew' in incident:
           try:
-            crew = json.loads(incident['crew'])
-            if 'assigned' in crew:
+            if isinstance(incident['crew'],dict):
+              crew = incident['crew']
+            else:
+              crew = json.loads(incident['crew'])
+            if 'assigned' in crew.keys():
               if int(crew['assigned']) > 0:
-                personelavail = int(crew['assigned']) 
-                extracrew = int(crew['assigned'])-int(crew['minimum'])
+                personelavail = int(crew['assigned'])
+                extracrew = 0
+                if 'minimum' in crew.keys():
+                  extracrew = int(crew['assigned'])-int(crew['minimum'])
           except:
-            self.logger.warn(inspect.currentframe().f_code.co_name+' - no crew in incident')
+            self.logger.warn(inspect.currentframe().f_code.co_name+' - no crew in incident '+str(crew))
 
              
         for vechid,vechname in vehicles.items():

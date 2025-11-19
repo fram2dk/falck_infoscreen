@@ -15,7 +15,7 @@ from queue import Queue
 from helperfunctions import Incidents,ThreadState
 
 gui_logger = logging.getLogger(__name__)
-gui_logger.setLevel(logging.INFO)
+gui_logger.setLevel(logging.DEBUG)
 
 def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic='',swversion='.,.',instanceid='ABC'):
     ## gui
@@ -115,6 +115,7 @@ def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic=
            if 'mqtt' in messageRaw.keys():
              message = messageRaw['mqtt']['message']
              topic = messageRaw['mqtt']['topic']
+             gui_logger.debug('recieved mqtt message: '+str(message))
              if len(message) < 10:
                 gui_logger.debug('no more to display')
                 window.withdraw()
