@@ -58,7 +58,7 @@ class Incidents:
             except:
               print("unable to handle incident:"+str(incidentpayload))
           else:
-            print("unable to type"+str(typeof(incident['payload']))+"handle incident:"+str(incident['payload']))
+            print("unable to type("+str(type(incident['payload']))+") handle incident:"+str(incident['payload']))
         except:
           print("incd payload invalid on incident:"+str(incident['payload'])+"   "+str(traceback.format_exc()))
 
@@ -341,16 +341,19 @@ class Incidents:
             
         meldSpecifik = None
         fuldmelding =  " "
+        if 'suppl_melding' in incident.keys():
+          fuldmelding  = str(incident['suppl_melding'])
+        
         if isinstance(incident['vehicles'],str):
           vehicles = json.loads(incident['vehicles'])
         elif isinstance(incident['vehicles'],dict):
           vehicles = incident['vehicles']
         else:
           vehicles = {}
-        if 'incident_type' in incident:
+        if 'incident_type' in incident.keys():
           if isinstance(incident['incident_type'],dict):
             melding = str(incident['incident_type']['melding'])
-            if 'melding_specifik' in incident['incident_type']:
+            if 'melding_specifik' in incident['incident_type'].keys():
               meldSpecifik = str(incident['incident_type']['melding_specifik'])
     
             if 'crew' in incident['incident_type']:
@@ -386,7 +389,7 @@ class Incidents:
         rownum = 0
         if meldSpecifik is not None:
           if len(meldSpecifik) > 1:
-            #print('meldoing: '+meldSpecifik)
+            print('melding: '+meldSpecifik)
             meldSpecifikLabel = tk.Message(frame,aspect=500, text = str(meldSpecifik),font=("Arial", int(50*scaling)))
             meldSpecifikLabel.grid(column=0,columnspan=3, row=0)
             rownum += 1
@@ -396,11 +399,22 @@ class Incidents:
         else:
           rowur = rownum 
           rownum += 1
-        if 'lokation' in incident:
-          if incident['lokation'] is not None:
-            lokation = tk.Label(frame, text = str(incident['lokation']),font=("Arial", int(40*scaling)))
-            lokation.grid(column=0,columnspan=3, row=rownum)
-            rownum += 1
+        if 'location' in incident.keys():
+          lokationstr = ''
+          if 'sted' in incident['location'].keys():
+            if isinstance(incident['location']['sted'],str):
+              lokationstr += str(incident['location']['sted'])
+          if 'adresse' in incident['location'].keys():
+            lokationstr += ' - '
+            if isinstance(incident['location']['adresse'],list):
+              if isinstance(incident['location']['adresse'][1],str):
+                lokationstr += str(incident['location']['adresse'][1])
+              if isinstance(incident['location']['adresse'][0],str):
+                lokationstr = str(incident['location']['adresse'][0])  
+
+          lokation = tk.Label(frame, text = str(lokationstr),font=("Arial", int(40*scaling)))
+          lokation.grid(column=0,columnspan=3, row=rownum)
+          rownum += 1
 
         personelavail = 0
         extracrew = 0
