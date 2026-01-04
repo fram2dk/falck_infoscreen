@@ -165,8 +165,9 @@ class Incidents:
               if datetime.now() > datetime.fromtimestamp(int(self.rawdict['endtime'])):
                 isinactive = True
             else:
-              if stresstid.total_seconds() > udkaldTimeActive and self.lastupdatetime < datetime.now()-timedelta(minutes=15):
-              # kun hvis der ikke sendes flere opdateringer/resend om denne incident:
+              if stresstid.total_seconds() > udkaldTimeActive and self.lastupdatetime < datetime.now()-timedelta(minutes=60):
+                #normalt kommer heartbeat hvert 30 min
+                # kun hvis der ikke sendes flere opdateringer/resend om denne incident:
                 isinactive = True
                 
             if isinactive and self.state == State.ACTIVE:
