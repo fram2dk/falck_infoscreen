@@ -155,7 +155,7 @@ def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic=
                pass
         window.update()                
            
-        if lastMesTime+timedelta(minutes=30)<datetime.now():
+        if lastMesTime+timedelta(minutes=45)<datetime.now():
            gui_logger.info('no update received for a long time')
            clearFrame()
            incidentsObj.update_incidents(window)

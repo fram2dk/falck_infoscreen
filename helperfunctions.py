@@ -194,7 +194,7 @@ class Incidents:
                 else:
                   udkaldstid += ' min.'
                   
-                udkaldstid += "   udkald kl. "+datetime.fromtimestamp(int(self.rawdict['starttime'])).strftime('%H:%M:%S')+" hjem kl."+datetime.fromtimestamp(int(self.rawdict['endtime'])).strftime('%H:%M:%S')
+                udkaldstid += "udkald kl. "+datetime.fromtimestamp(int(self.rawdict['starttime'])).strftime('%H:%M:%S')+" hjem kl."+datetime.fromtimestamp(int(self.rawdict['endtime'])).strftime('%H:%M:%S')
 
                 
                 if self.stressurCanvas is not None:

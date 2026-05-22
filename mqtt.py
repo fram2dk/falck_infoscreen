@@ -48,14 +48,7 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
       monitorque.put({'name':name,'state':'disconnected'})
       if rc != 0:
         recondelay = random.randrange(8, 89)
-        mqtt_logger.info("Unexpected MQTT disconnection. Attempting to reconnect. in "+str(recondelay)+" seconds")
-        time.sleep(recondelay)
-        try:
-          client.reconnect()
-        except:
-          recondelay = random.randrange(60, 289)
-          mqtt_logger.info("Unexpected MQTT disconnection. Attempting to reconnect. in "+str(recondelay)+" seconds")
-      
+        mqtt_logger.info("Unexpected MQTT disconnection.")
       
     def on_message(client, userdata, msg):
          nonlocal conntimeout
@@ -144,12 +137,26 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
         
     mqtt_logger.debug('connected?')
     #client.loop_forever()
-    while True: #datetime.now() < conntimeout:
-       client.loop_start()
+    client.loop_start()
+    while True:
+       recondelay = random.randrange(16, 29)
+       while not client.is_connected():
+         if recondelay % 10 == 0:
+           mqtt_logger.debug("reconnect attempt will do in.."+str(recondelay)+" s.")
+         recondelay -= 1
+         if recondelay <= 0:
+           recondelay = random.randrange(60, 289)
+           try:
+             client.reconnect()
+           except:
+             mqtt_logger.info("reconnect attempt failed")
+         time.sleep(1)
+    
        while not statusQueue.empty():
          client.publish(str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid)+"/incidentupdate",json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':json.dumps(statusQueue.get())}))
        time.sleep(0.5)
-       client.loop_stop()
+    client.loop_stop()
+
     raise "MQTT ended due to timeout reached"
        
        
