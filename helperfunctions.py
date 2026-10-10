@@ -40,7 +40,8 @@ class Incidents:
     
     return False #statechanged
   def update_incidents(self,curWindow,newIncidents=None):
-    if newIncidents is not None:
+    if newIncidents is not None and isinstance(newIncidents,list):
+      self.logger.debug("looking at "+str(len(newIncidents))+" incidents to update") 
       for incident in newIncidents:
         try:
           if isinstance(incident['payload'],str):
@@ -53,17 +54,24 @@ class Incidents:
                 newid = incidentpayload['id'] 
                 if newid not in self.allincidents.keys():
                   self.allincidents[newid] = self.Incident(newid)
-                if newid in self.allincidents.keys():
+                  self.logger.debug("Incident("+str(newid)+") was new, creating it")
+                else:
                   self.allincidents[newid].update(incidentpayload)
+                  self.logger.debug("Incident("+str(newid)+") was known, updating it")
+              else:
+                self.logger.error("incident does not have an embedded id, payload:("+str(incidentpayload)+")")
             except:
-              print("unable to handle incident:"+str(incidentpayload))
+              self.logger.error("unable to handle incident:"+str(incidentpayload))
           else:
-            print("unable to type("+str(type(incident['payload']))+") handle incident:"+str(incident['payload']))
+            self.logger.error("unable to type("+str(type(incident['payload']))+") handle incident:"+str(incident['payload']))
         except:
-          print("incd payload invalid on incident:"+str(incident['payload'])+"   "+str(traceback.format_exc()))
+          self.logger.error("incd payload invalid on incident:"+str(incident['payload'])+"   "+str(traceback.format_exc()))
+    else:
+      self.logger.warn("None incidents provided for update call!!!")
 
           #self.logger.warn("unable to handle incident:"+str(incident))
     #check overall statuses
+     
     stateview = {0:0,1:0,2:0,3:0,4:0,5:0,6:0}
     for incidentid,incidentObj in self.allincidents.items():
        stateview[incidentObj.state.value] += 1
@@ -71,6 +79,7 @@ class Incidents:
     if stateview[1] == 0:
       if stateview[2]+stateview[3] <= 2:
         self.displayclock = True
+    self.logger.debug("updating all incident states.."+str(stateview)+" will show clock:"+str(self.displayclock))    
     if self.displayclock:
        if self.clockstr is None:
          self.clockstr = tk.StringVar(curWindow)
@@ -83,7 +92,11 @@ class Incidents:
        else:
           incidentObj.setConstrain(False)
        if incidentObj.rawdict != '' and incidentObj.state != State.OFF:
+         self.logger.debug("Trying to draw constrained("+str(incidentObj.constrained)+") Incident("+str(incidentid)+")") 
          incidentObj.drawIncident(curWindow)
+       else:  
+         self.logger.debug("No drawing for Incident("+str(incidentid)+")")  
+         
     return None
 
   def getStates(self):
@@ -128,11 +141,11 @@ class Incidents:
         return True
       return False
     def updateur(self):
-      udkaldTimeWarning = 280 #280
-      udkaldTimeExceeded = 300 #300
-      udkaldTimeCalling = 600 #600
-      udkaldTimeActive =  60*30 #60*30
-      udkaldTimeExpired = 3600*2 #3600*12
+      udkaldTimeWarning = 28 #280
+      udkaldTimeExceeded = 30 #300
+      udkaldTimeCalling = 100 #600
+      udkaldTimeActive =  60*3 #60*30
+      udkaldTimeExpired = 360 #3600*12
       stateChanged = False
  
       if isinstance(self.rawdict,dict):
@@ -194,11 +207,11 @@ class Incidents:
                 else:
                   udkaldstid += ' min.'
                   
-                udkaldstid += "udkald kl. "+datetime.fromtimestamp(int(self.rawdict['starttime'])).strftime('%H:%M:%S')+" hjem kl."+datetime.fromtimestamp(int(self.rawdict['endtime'])).strftime('%H:%M:%S')
+                udkaldstid += "udkald kl. "+datetime.fromtimestamp(int(self.rawdict['starttime'])).strftime('%H:%M:%S')+"\r\nhjem kl."+datetime.fromtimestamp(int(self.rawdict['endtime'])).strftime('%H:%M:%S')
 
                 
                 if self.stressurCanvas is not None:
-                  print(udkaldstid)  
+                  #print(udkaldstid)  
                   self.stressurCanvas.itemconfig(self.stressurCanvasText, text=udkaldstid)
               if stresstid.total_seconds() >= 3600*24:
                 self.logger.info(inspect.currentframe().f_code.co_name+' - incident changed to off')
@@ -267,14 +280,14 @@ class Incidents:
             frame.configure(text=str(meldingsplit[0]))
             melding = textwrap.fill('\n'.join(meldingsplit[1:]),replace_whitespace=False,width=25)
         else:
-          if 'meldingdata' in incident:
-            if isinstance(incident['meldingdata'],dict):
-              frame.configure(text=str(incident['meldingdata']['melding']))
+          if 'incident_type' in incident:
+            if isinstance(incident['incident_type'],dict):
+              frame.configure(text=str(incident['incident_type']['melding']))
               melding = ""
-              if 'melding_specifik' in incident['meldingdata']:
-                melding += str(incident['meldingdata']['melding_specifik'])+"\n"
-              if 'crew' in incident['meldingdata']:
-                for vechid in incident['meldingdata']['crew'].keys():
+              if 'melding_specifik' in incident['incident_type']:
+                melding += str(incident['incident_type']['melding_specifik'])+"\n"
+              if 'crew' in incident['incident_type'].keys():
+                for vechid in incident['incident_type']['crew'].keys():
                   if vechid in incident['vehicles'].keys():
                     melding += incident['vehicles'][str(vechid)]+","
                 melding += "\n"
@@ -302,10 +315,10 @@ class Incidents:
               c.create_oval(int(cx-circleradius),int(cy-circleradius),int(cx+circleradius),int(cy+circleradius),fill='white')
 
             vechicleid = str(vechid)
-            if incident['meldingdata'] is not None:
-              if 'crew' in incident['meldingdata']:
-                if vechicleid in incident['meldingdata']['crew']:
-                  crewneed = len(incident['meldingdata']['crew'][vechicleid])
+            if incident['incident_type'] is not None:
+              if 'crew' in incident['incident_type'].keys():
+                if vechicleid in incident['incident_type']['crew'].keys():
+                  crewneed = len(incident['incident_type']['crew'][vechicleid])
                   crewused = min(crewneed,len(personelavail))
                   csize = int(height/2.5)
                   c = tk.Canvas(frame, width=csize, height=csize)

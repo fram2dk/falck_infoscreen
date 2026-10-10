@@ -102,7 +102,7 @@ def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic=
           clearFrame()
           incidentsObj.update_incidents(window)
           statusque.put({"Incident states":incidentsObj.getStates()})
-          print('statusque apppended')
+          gui_logger.debug('new incident status: '+str(incidentsObj)+'')
 
        window.after(200, timerInterrupt)
        window.update()        
@@ -110,6 +110,7 @@ def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic=
     def checkque():
         nonlocal lastMesTime
         nonlocal lastMes
+        gui_logger.info('checking for new messages')
         while not que.empty():
            messageRaw = que.get()
            if 'mqtt' in messageRaw.keys():
@@ -137,7 +138,7 @@ def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic=
                     if incidents is not None:
                       clearFrame()
                       incidentsObj.update_incidents(window,newIncidents=incidents)
-                      #gui_logger.debug("Incident states: "+str(incidentsObj))
+                      gui_logger.debug("Incident states: "+str(incidentsObj))
                       statusque.put({"reason":"received some incidents","incidentstates":incidentsObj.getStates()})
                     else:
                       gui_logger.debug("Incidents was not update")
