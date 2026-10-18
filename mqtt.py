@@ -1,5 +1,6 @@
 from queue import Queue
 import paho.mqtt.client as mqtt
+from paho.mqtt.client import CallbackAPIVersion
 import ssl
 import time
 import base64
@@ -31,9 +32,9 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
     mqttsendtopic = str(mqttbasetopic)+"/fromScreen/instance/"+str(instanceid)
     ## mqtt
     # The callback for when the client receives a CONNACK response from the server.
-    def on_connect(client, userdata, flags, rc):
+    def on_connect(client, userdata, flags, reason_code, properties):
          nonlocal conntimeout
-         mqtt_logger.info("Connected with result code "+str(rc))
+         mqtt_logger.info("Connected with result code "+str(reason_code))
          time.sleep(1)
          client.publish(mqttsendtopic, json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'screen logged on','swversion':str(swversion),'listening':[str(mqttdata['topic'])]}))
          client.subscribe(mqttdata['topic'])
@@ -41,14 +42,14 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
          conntimeout = datetime.now()+timedelta(days = 1)
          monitorque.put({'name':name,'state':'connected'})
     # The callback for when a PUBLISH message is received from the server.
-    def on_disconnect(client, userdata, rc):
+    def on_disconnect(client, userdata, reason_code):
       nonlocal conntimeout
-      mqtt_logger.warn("Device disconnected with result code: " + str(rc))
+      mqtt_logger.warn("Device disconnected with result code: " + str(reason_code))
       conntimeout = datetime.now()+timedelta(minutes = 10)
       monitorque.put({'name':name,'state':'disconnected'})
       if rc != 0:
         recondelay = random.randrange(8, 89)
-        mqtt_logger.info("Unexpected MQTT disconnection.")
+        mqtt_logger.info("Unexpected MQTT disconnection. - "+str(reason_code))
       
     def on_message(client, userdata, msg):
          nonlocal conntimeout
@@ -95,39 +96,45 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
        mqtt_logger.debug(f"SYSTEM: {buf}")
        if str(buf) == 'Received PINGRESP':
          monitorque.put({'name':name,'state':'connected'})
+
+    def create_client(mqttid=None):
+       if mqttid is None:
+         mqttid = ''.join(random.choice(string.ascii_letters) for _ in range(3))
+       client = mqtt.Client(client_id=str(mqttid),callback_api_version=CallbackAPIVersion.VERSION2)
+       client.on_connect = on_connect
+       client.on_disconnect = on_disconnect
+       client.on_message = on_message
+       client.on_log = on_log
+       client.will_set(str(mqttsendtopic), \
+         payload=json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':(instanceid),'message':'disconnected'}),qos=1,retain=False)
+       client.username_pw_set(mqttdata['user']['name'],mqttdata['user']['password'])
+       monitorque.put({'name':name,'state':'connecting'})
+       return client
   
     def connCert():
-       cafile = './rootCA.crt'
-       certfile = './brandtelegram.crt'
-       keyfile = './brandtelegram.key'
+       mqtt_logger.debug("looking fooor TLS certs in: "+str(os.path.dirname(__file__)))
+       cafile = str(os.path.dirname(__file__))+'/rootCA.crt'
+       certfile = str(os.path.dirname(__file__))+'/brandtelegram.crt'
+       keyfile = str(os.path.dirname(__file__))+'/brandtelegram.key'
        
        client.tls_set(ca_certs=cafile, certfile=certfile, keyfile=keyfile, tls_version=ssl.PROTOCOL_TLS, cert_reqs=ssl.CERT_REQUIRED)
        client.tls_insecure_set(True)
        client.connect(mqttdata['server']['hostname'], mqttdata['server']['port'], 53)
        time.sleep(0.1)
+
     try:
       mqttid = str(os.getenv('STATIONNAME'))+'-'
     except:
       mqtt_logger.warn('station name not set')
-    mqttid +=  str(base64.b64encode(uuid.getnode().to_bytes(6,'big')).decode("ascii"))
-    mqttid = str(mqttid.encode('ascii',errors='ignore'))
+    #mqttid +=  str(base64.b64encode(uuid.getnode().to_bytes(6,'big')).decode("ascii"))
+    mqttid = mqttid.encode('ascii',errors='ignore').decode('ascii')
     #if len(mqttid) < 3:
-    mqttid2 = ''.join(random.choice(string.ascii_letters) for _ in range(3))
+    mqttid += str(''.join(random.choice(string.ascii_letters) for _ in range(3)))
     mqtt_logger.debug("my mqttid:"+str(mqttid))  
-    client = mqtt.Client(client_id=str(mqttid2))
-    while mqttstate == 'init':
-      client.reinitialise()
-      client.on_connect = on_connect
-      client.on_disconnect = on_disconnect
-      client.on_message = on_message
-      client.on_log = on_log
-      client.will_set(str(mqttsendtopic), \
-        payload=json.dumps({'timestamp':datetime.now(timezone.utc).timestamp(),'instance':str(instanceid),'message':'disconnected'}),qos=2,retain=False)
-      client.username_pw_set(mqttdata['user']['name'], mqttdata['user']['password'])
 
-      mqtt_logger.debug("connecting to broker")
-      monitorque.put({'name':name,'state':'connecting'})
-    
+    while mqttstate == 'init':
+      #client.reinitialise()
+      client = create_client(mqttid)
       try:
         connCert()
         mqttstate = 'connected'

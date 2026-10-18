@@ -39,6 +39,7 @@ logger.addHandler(filehandler)
 version = '250926a'
 instanceid = str(base64.b64encode(uuid.getnode().to_bytes(6,'big')).decode("ascii"))
 allok = True
+basicX11=False
 
 def handle_exception(exc_type, exc_value, exc_traceback):
    global allok
@@ -60,13 +61,17 @@ threading.excepthook = treads_exception
 
 load_dotenv()
 mqttdata = json.loads(os.getenv('MQTTDATA'))
+setup = json.loads(os.getenv('SETUP'))
+if 'basicX11' in setup.keys():
+  basicX11 = setup['basicX11']
+
 incidentsque = Queue(maxsize = 3)
 statusque = Queue(maxsize = 5)
 threadMonitorQue = Queue(maxsize = 20)
 threadmon = ThreadMonitor()
 
 if __name__ == "__main__":
-    guit = threading.Thread(target=threadGui,daemon=True, args=('gui',incidentsque,statusque,threadMonitorQue), kwargs={'incidenttopic':str(mqttdata['topic']),'swversion':version,'instanceid':instanceid})
+    guit = threading.Thread(target=threadGui,daemon=True, args=('gui',incidentsque,statusque,threadMonitorQue), kwargs={'incidenttopic':str(mqttdata['topic']),'basicX11':basicX11,'swversion':version,'instanceid':instanceid})
     threadmon.newThread('gui',timeout=10)
     guit.start()
     mqttc = threading.Thread(target=threadMqtt,daemon=True, args=('mqttserver',incidentsque,statusque,threadMonitorQue), kwargs={'swversion':version,'instanceid':instanceid})
@@ -76,6 +81,8 @@ while allok:
   if not incidentsque.full():
     states = threadmon.getStates()
     incidentsque.put({'states':states})
+  else:
+    print("warning incidents que is full")
   time.sleep(1)
 
   while not threadMonitorQue.empty():

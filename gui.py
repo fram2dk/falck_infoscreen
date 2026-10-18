@@ -2,11 +2,7 @@
 import tkinter as tk
 import screeninfo
 import os
-#import tksvg
 import json
-#from PIL import Image, ImageTk
-#from PIL import ImageGrab
-import pyscreenshot as ImageGrab
 from datetime import datetime,timedelta
 import time
 import logging
@@ -17,33 +13,64 @@ from helperfunctions import Incidents,ThreadState
 gui_logger = logging.getLogger(__name__)
 gui_logger.setLevel(logging.DEBUG)
 
-def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic='',swversion='.,.',instanceid='ABC'):
+def threadGui(name,que: Queue,statusque: Queue,monitorque: Queue, incidenttopic='',swversion='.,.',instanceid='ABC',basicX11=False):
     ## gui
     incidentsObj = Incidents()
-    window = tk.Tk()
-    monitors = screeninfo.get_monitors()
-    if len(monitors) > 1:
-      gui_logger.debug(str(monitors[1]))
-      ws = monitors[1].width
-      hs = monitors[1].height
-      w = ws-7
-      h = hs
-      x = monitors[1].x+1
-      y = monitors[1].y
+    if basicX11:
+      print("starter basic X11 env")
+      time.sleep(1) #########################
+      window = tk.Tk()
+      ws = window.winfo_screenwidth()
+      hs = window.winfo_screenheight()
+      window.geometry(f"{ws}x{hs}+0+0")
+
+      window.attributes('-fullscreen',True)
+      #window.attributes('-topmost',True)
+      window.update_idletasks()
+
+      window.config(cursor="none")
+      window.wait_visibility(window)
+      window.focus_force()
+
+      window.bind("<Escape>", lambda e:close_app(window))
+      window.bind("q", lambda e: close_app(window))
+      window.bind("<Control-c>", lambda e:close_app(window))
+      
+      print("startet basic X11 env")
     else:
-      ws = window.winfo_screenwidth() # width of the screen
-      hs = window.winfo_screenheight() # height of the screen
-      w = ws/3 # width for the Tk root
-      h = hs # height for the Tk root
-      # calculate x and y coordinates for the Tk root window
-      x = (ws) - (w)
-      y = (hs/2) - (h/2)
-    if ws>hs:
-      w = h*2
-    window.geometry('%dx%d+%d+%d' % (w, h, x, y))
-    gui_logger.debug("screen:"+str(w)+"x"+str(h)+" x="+str(x)+",y="+str(y))
-    #Set the Title of Tkinter window
-    window.title(str(os.getenv('STATIONNAME'))+' (v'+str(swversion)+')')
+      window = tk.Tk()
+      monitors = screeninfo.get_monitors()
+      if len(monitors) > 1:
+        gui_logger.debug(str(monitors[1]))
+        ws = monitors[1].width
+        hs = monitors[1].height
+        w = ws-7
+        h = hs
+        x = monitors[1].x+1
+        y = monitors[1].y
+      else:
+        ws = window.winfo_screenwidth() # width of the screen
+        hs = window.winfo_screenheight() # height of the screen
+        w = ws/3 # width for the Tk root
+        h = hs # height for the Tk root
+        # calculate x and y coordinates for the Tk root window
+        x = (ws) - (w)
+        y = (hs/2) - (h/2)
+      if ws>hs:
+        w = h*2
+      window.geometry('%dx%d+%d+%d' % (w, h, x, y))
+      gui_logger.debug("screen:"+str(w)+"x"+str(h)+" x="+str(x)+",y="+str(y))
+
+      #Set the Title of Tkinter window
+      window.title(str(os.getenv('STATIONNAME'))+' (v'+str(swversion)+')')
+
+    def close_app(window):
+      try:
+        window.destroy()
+      except Exception:
+        pass
+      os._exit(0)
+
     def drawImage(pngdata=None):
         clearFrame()
         if pngdata is not None:

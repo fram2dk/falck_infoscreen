@@ -141,11 +141,11 @@ class Incidents:
         return True
       return False
     def updateur(self):
-      udkaldTimeWarning = 28 #280
-      udkaldTimeExceeded = 30 #300
-      udkaldTimeCalling = 100 #600
-      udkaldTimeActive =  60*3 #60*30
-      udkaldTimeExpired = 360 #3600*12
+      udkaldTimeWarning = 280 #280
+      udkaldTimeExceeded = 300 #300
+      udkaldTimeCalling = 600 #600
+      udkaldTimeActive =  60*30 #60*30
+      udkaldTimeExpired = 3600*24 #3600*12
       stateChanged = False
  
       if isinstance(self.rawdict,dict):
