@@ -146,6 +146,24 @@ class Incidents:
       udkaldTimeCalling = 600 #600
       udkaldTimeActive =  60*30 #60*30
       udkaldTimeExpired = 3600*24 #3600*12
+      try:
+        setup = json.loads(os.getenv('SETUP'))
+        if 'states' in setup.keys():
+          if 'warning' in setup['states'].keys():
+            if setup['states']['warning'] > 0:
+              udkaldTimeWarning = setup['states']['warning']
+          if 'exceeded' in setup['states'].keys():
+            if setup['states']['exceeded'] > 0:
+              udkaldTimeExceeded = setup['states']['exceeded']
+          if 'calling' in setup['states'].keys():
+            if setup['states']['calling'] > 0:
+              udkaldTimeCalling = setup['states']['calling']
+          if 'expired' in setup['states'].keys():
+            if setup['states']['expired'] > 0:
+              udkaldTimeExpired = setup['setup']['expired']
+      except:
+        pass
+
       stateChanged = False
  
       if isinstance(self.rawdict,dict):
@@ -256,17 +274,18 @@ class Incidents:
         if self.state == State.INACTIVE:
           textcolor = '#aaa'
         if vconstrain:
-          textsize = 12*scaling
+          textsize = 12*scaling #12
         else:
-          textsize = 30*scaling
+          textsize = 30*scaling #
         
         self.drawingFrame = tk.LabelFrame(window,fg=textcolor,font=("Arial", int(textsize*1.2)),labelanchor='n')
         frame = self.drawingFrame
         rownum = 0
         indsatstidLabelMes = tk.Message(frame,aspect=500, fg=textcolor,text = 'Indsats tid:',font=("Arial", int(textsize)))
-        self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=1000, height=50)
+        tmpurcanvasheight=50
+        self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=1000, height=tmpurcanvasheight)
         self.stressurCanvasBg = round_rectangle(self.stressurCanvas,0, 0, 2, 2, radius=20, fill='#000')
-        self.stressurCanvasText = self.stressurCanvas.create_text(10, 30, fill=textcolor,text='_',anchor="w", font=("Arial", int(textsize)))
+        self.stressurCanvasText = self.stressurCanvas.create_text(10, tmpurcanvasheight/2, fill=textcolor,text='_',anchor="w", font=("Arial", int(textsize)))
         self.stressurCanvas.grid(sticky="w",column=1, row=rownum)
         indsatstidLabelMes.grid(column=0, row=rownum)
         rownum += 1
@@ -488,7 +507,7 @@ class Incidents:
             ursize = {'h':int(140*scaling),'w':int(430*scaling)} 
             self.stressurCanvas = tk.Canvas(frame,background=window["bg"], width=ursize['w'], height=ursize['h'])
             self.stressurCanvasBg = round_rectangle(self.stressurCanvas,1, 1, ursize['w']-1, ursize['h']-1, radius=int(ursize['h']*0.15), fill='') 
-            self.stressurCanvasText = self.stressurCanvas.create_text(int(ursize['w']*0.05), int(ursize['h']/2), text='_',anchor="w", font=("Arial", int(120*scaling)))  #120
+            self.stressurCanvasText = self.stressurCanvas.create_text(int(ursize['w']*0.1), int(ursize['h']/2)+int(15*scaling), text='_',anchor="w", font=("Arial", int(100*scaling)))  #100
             self.stressurCanvas.grid(column=0,columnspan=3, row=rowur)
           self.updateur()
         if not vconstrain:

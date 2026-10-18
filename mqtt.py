@@ -70,7 +70,7 @@ def threadMqtt(name,respQueue: Queue,statusQueue: Queue,monitorque: Queue,incide
              if cmdPayload['cmd'] == 'screenshot':
                payloadReturn = {'msg':None}
                try:
-                 scrnPath = os.path.join('/run/user/1000/'+'scrn.png')
+                 scrnPath = os.path.join('/tmp/'+'scrn.png')
                  #scrnPath = os.path.join('/home/vboxuser/python/stationscreen/falck_infoscreen/'+'test1.png')
                  if os.path.exists(scrnPath):
                    payloadReturn['image'] = None
