@@ -141,7 +141,7 @@ class Incidents:
         return True
       return False
     def updateur(self):
-      udkaldTimeWarning = 28 #280
+      udkaldTimeWarning = 280 #280
       udkaldTimeExceeded = 300 #300
       udkaldTimeCalling = 600 #600
       udkaldTimeActive =  60*30 #60*30
